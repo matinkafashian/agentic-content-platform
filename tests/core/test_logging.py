@@ -1,6 +1,6 @@
 import logging
 
-from app.core.logging import configure_logging
+from app.core.logging import SecretRedactionFilter, configure_logging
 
 
 def test_logs_redact_token_like_values(caplog):
@@ -30,3 +30,21 @@ def test_logs_preserve_non_sensitive_business_context(caplog):
         logger.info("product_id=%s status=%s", 42, "created")
 
     assert "product_id=42 status=created" in caplog.text
+
+
+def test_redaction_does_not_consume_third_party_formatter_arguments():
+    record = logging.LogRecord(
+        name="uvicorn.error",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="Started server process [%d]",
+        args=(23040,),
+        exc_info=None,
+    )
+    record.color_message = "Started server process [%d]"
+
+    SecretRedactionFilter().filter(record)
+
+    assert record.args == (23040,)
+    assert record.color_message % record.args == "Started server process [23040]"

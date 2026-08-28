@@ -21,6 +21,8 @@ def redact_secrets(message: str) -> str:
 
 class SecretRedactionFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
+        if record.name != "app" and not record.name.startswith("app."):
+            return True
         try:
             rendered = record.getMessage()
         except Exception:
