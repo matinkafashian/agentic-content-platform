@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head><meta charset="utf-8"><title>{{ "ویرایش" if product else "محصول جدید" }}</title></head>
+  <body>
+    <main data-page="product-form">
+      <h1>{{ "ویرایش محصول" if product else "افزودن محصول" }}</h1>
+      <form method="post" enctype="multipart/form-data" action="{{ '/admin/products/' ~ product.id if product else '/admin/products' }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <label for="name">نام محصول</label>
+        <input id="name" name="name" value="{{ values.name | default('') }}" required>
+        {% if errors.name %}<p role="alert">{{ errors.name }}</p>{% endif %}
+
+        <label for="description">توضیحات</label>
+        <textarea id="description" name="description">{{ values.description | default('') }}</textarea>
+
+        <label for="price">قیمت (تومان)</label>
+        <input id="price" name="price" inputmode="decimal" value="{{ values.price | default('') }}" required>
+        {% if errors.price %}<p role="alert">{{ errors.price }}</p>{% endif %}
+
+        <label for="availability">وضعیت موجودی</label>
+        <input id="availability" name="availability" value="{{ values.availability | default('available') }}">
+        {% if errors.availability %}<p role="alert">{{ errors.availability }}</p>{% endif %}
+
+        <label for="shipping_info">اطلاعات ارسال</label>
+        <textarea id="shipping_info" name="shipping_info">{{ values.shipping_info | default('') }}</textarea>
+
+        <label for="tags">هشتگ‌ها</label>
+        <input id="tags" name="tags" value="{{ values.tags | default('') }}" placeholder="کانتر، دکوراسیون">
+        {% if errors.tags %}<p role="alert">{{ errors.tags }}</p>{% endif %}
+
+        <fieldset>
+          <legend>ویژگی محصول</legend>
+          {% if values.attributes %}
+            {% for key, value in values.attributes.items() %}
+              <input name="attribute_key" aria-label="نام ویژگی" value="{{ key }}">
+              <input name="attribute_value" aria-label="مقدار ویژگی" value="{{ value }}">
+            {% endfor %}
+          {% else %}
+            <input name="attribute_key" aria-label="نام ویژگی">
+            <input name="attribute_value" aria-label="مقدار ویژگی">
+          {% endif %}
+        </fieldset>
+
+        <label for="image">تصویر محصول</label>
+        <input id="image" name="image" type="file" accept="image/jpeg,image/png,image/webp" {{ '' if product else 'required' }}>
+        <small>JPEG، PNG یا WebP؛ حداکثر ۱۵ مگابایت</small>
+        {% if errors.image %}<p role="alert">{{ errors.image }}</p>{% endif %}
+
+        <label><input name="active" type="checkbox" value="true" {% if values.active %}checked{% endif %}> فعال</label>
+        <button type="submit">ذخیره محصول</button>
+      </form>
+    </main>
+  </body>
+</html>

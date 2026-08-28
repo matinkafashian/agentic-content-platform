@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from app.catalog.repository import ProductRepository
 from app.catalog.schemas import ProductCreate, ProductUpdate
-from app.catalog.service import ProductNotFound, ProductService
+from app.catalog.service import InvalidProductImagePath, ProductNotFound, ProductService
 
 
 def test_create_product_normalizes_text_and_tags(db_session):
@@ -38,3 +38,11 @@ def test_update_unknown_product_raises(db_session):
 
     with pytest.raises(ProductNotFound):
         service.update(999, ProductUpdate(name="نام جدید"))
+
+
+def test_image_path_cannot_escape_its_product_directory(db_session):
+    service = ProductService(ProductRepository(db_session))
+    product = service.create(ProductCreate(name="محصول", price=Decimal("1")))
+
+    with pytest.raises(InvalidProductImagePath):
+        service.set_image(product.id, "../private/secret.png")

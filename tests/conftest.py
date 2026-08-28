@@ -1,5 +1,9 @@
+import re
+from io import BytesIO
+
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 from pwdlib import PasswordHash
 from sqlalchemy.orm import Session
 
@@ -27,8 +31,46 @@ def client(tmp_path, admin_credentials) -> TestClient:
         admin_password_hash=admin_credentials["password_hash"],
         debug=True,
     )
-    with TestClient(create_app(settings)) as test_client:
+    app = create_app(settings)
+    Base.metadata.create_all(app.state.engine)
+    with TestClient(app) as test_client:
         yield test_client
+    Base.metadata.drop_all(app.state.engine)
+    app.state.engine.dispose()
+
+
+def _extract_csrf(html: str) -> str:
+    match = re.search(r'name="csrf_token" value="([^"]+)"', html)
+    assert match is not None, "CSRF field was not rendered"
+    return match.group(1)
+
+
+@pytest.fixture
+def authenticated_client(client) -> TestClient:
+    login_page = client.get("/admin/login")
+    response = client.post(
+        "/admin/login",
+        data={
+            "username": "admin",
+            "password": "correct-password",
+            "csrf_token": _extract_csrf(login_page.text),
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    return client
+
+
+@pytest.fixture
+def csrf_token(authenticated_client) -> str:
+    return _extract_csrf(authenticated_client.get("/admin").text)
+
+
+@pytest.fixture
+def png_upload() -> bytes:
+    output = BytesIO()
+    Image.new("RGB", (32, 32), "white").save(output, format="PNG")
+    return output.getvalue()
 
 
 @pytest.fixture

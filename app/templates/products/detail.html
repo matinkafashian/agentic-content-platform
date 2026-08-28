@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head><meta charset="utf-8"><title>{{ product.name }}</title></head>
+  <body>
+    <main data-page="product-detail">
+      <h1>{{ product.name }}</h1>
+      {% if product.primary_image_path %}
+        <img src="/uploads/{{ product.primary_image_path }}" alt="{{ product.name }}">
+      {% endif %}
+      <p>{{ product.description }}</p>
+      <p>{{ product.price | price_fa }} تومان</p>
+      <p>{{ product.shipping_info }}</p>
+      <ul>{% for tag in product.tags %}<li>#{{ tag }}</li>{% endfor %}</ul>
+      <a href="/admin/products/{{ product.id }}/edit">ویرایش محصول</a>
+      <a href="/admin/products">بازگشت به محصولات</a>
+    </main>
+  </body>
+</html>
