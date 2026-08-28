@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -27,6 +29,11 @@ def create_app(settings: Settings) -> FastAPI:
         "/uploads/products",
         StaticFiles(directory=product_upload_root),
         name="product-uploads",
+    )
+    app.mount(
+        "/static",
+        StaticFiles(directory=Path(__file__).resolve().parent / "static"),
+        name="static",
     )
 
     @app.get("/health", tags=["system"])

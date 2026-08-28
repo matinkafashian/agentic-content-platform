@@ -1,0 +1,5 @@
+{% if flash %}
+  <div class="alert alert-{{ flash.kind | default('info') }}" role="status">
+    <span>{{ flash.message }}</span>
+  </div>
+{% endif %}

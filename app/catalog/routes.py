@@ -1,11 +1,8 @@
 from dataclasses import dataclass
-from decimal import Decimal
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -16,6 +13,7 @@ from app.catalog.schemas import ProductCreate, ProductUpdate
 from app.catalog.service import ProductNotFound, ProductService
 from app.core.database import get_db
 from app.core.security import ensure_csrf_token, validate_csrf
+from app.core.templating import templates
 from app.media.images import (
     MAX_IMAGE_BYTES,
     InvalidImage,
@@ -25,15 +23,6 @@ from app.media.images import (
 )
 
 router = APIRouter(prefix="/admin/products", tags=["products"])
-templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "templates")
-
-
-def format_price_fa(value: Decimal) -> str:
-    western = f"{value:,.0f}"
-    return western.translate(str.maketrans("0123456789,", "۰۱۲۳۴۵۶۷۸۹٬"))
-
-
-templates.env.filters["price_fa"] = format_price_fa
 
 
 @dataclass(frozen=True)
@@ -159,6 +148,7 @@ def render_form(
             "values": values,
             "errors": errors,
             "product": product,
+            "current_page": "products",
         },
         status_code=status_code,
     )
@@ -174,7 +164,11 @@ def product_index(
     return templates.TemplateResponse(
         request=request,
         name="products/index.html",
-        context={"products": products},
+        context={
+            "products": products,
+            "csrf_token": ensure_csrf_token(request),
+            "current_page": "products",
+        },
     )
 
 
@@ -246,7 +240,11 @@ def product_detail(
     return templates.TemplateResponse(
         request=request,
         name="products/detail.html",
-        context={"product": product},
+        context={
+            "product": product,
+            "csrf_token": ensure_csrf_token(request),
+            "current_page": "products",
+        },
     )
 
 

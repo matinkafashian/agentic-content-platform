@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>{% block title %}پنل مدیریت{% endblock %} | هاب محتوا</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="/static/js/app.js" defer></script>
+  </head>
+  <body class="{{ 'auth-page' if public_page else 'admin-page' }}">
+    {% if public_page %}
+      <div class="auth-backdrop" aria-hidden="true">
+        <span class="auth-orb auth-orb-one"></span>
+        <span class="auth-orb auth-orb-two"></span>
+      </div>
+      <main class="auth-shell">
+        {% block auth_content %}{% endblock %}
+      </main>
+    {% else %}
+      <a class="skip-link" href="#main-content">پرش به محتوای اصلی</a>
+      <header class="mobile-header">
+        <a class="brand brand-compact" href="/admin" aria-label="صفحه اصلی هاب محتوا">
+          <span class="brand-mark" aria-hidden="true">ه‍</span>
+          <span>هاب محتوا</span>
+        </a>
+        <button class="icon-button nav-toggle" type="button" data-nav-toggle aria-controls="main-sidebar" aria-expanded="false" aria-label="باز کردن منو">
+          <span></span><span></span><span></span>
+        </button>
+      </header>
+      <div class="nav-scrim" data-nav-scrim hidden></div>
+      <div class="admin-shell">
+        <aside class="sidebar" id="main-sidebar" data-sidebar>
+          <a class="brand" href="/admin" aria-label="صفحه اصلی هاب محتوا">
+            <span class="brand-mark" aria-hidden="true">ه‍</span>
+            <span class="brand-copy"><strong>هاب محتوا</strong><small>مدیریت هوشمند کسب‌وکار</small></span>
+          </a>
+          <nav class="primary-nav" aria-label="ناوبری اصلی">
+            <a href="/admin" class="nav-item {{ 'is-current' if current_page == 'dashboard' else '' }}" {% if current_page == 'dashboard' %}aria-current="page"{% endif %}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg>
+              <span>نمای کلی</span>
+            </a>
+            <a href="/admin/products" class="nav-item {{ 'is-current' if current_page == 'products' else '' }}" {% if current_page == 'products' %}aria-current="page"{% endif %}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 9 5-9 5-9-5 9-5Zm-7 9.2 7 3.9 7-3.9V17l-7 4-7-4v-5.8Z"/></svg>
+              <span>محصولات</span>
+            </a>
+          </nav>
+          <div class="sidebar-spacer"></div>
+          <div class="sidebar-status">
+            <span class="status-dot"></span>
+            <div><strong>فاز پایه فعال است</strong><small>کاتالوگ و مدیریت امن</small></div>
+          </div>
+          <form method="post" action="/admin/logout" class="logout-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="nav-item nav-button" type="submit">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17v3H4V4h6v3h2V2H2v20h10v-5h-2Zm5-10-1.4 1.4 2.6 2.6H8v2h8.2l-2.6 2.6L15 17l5-5-5-5Z"/></svg>
+              <span>خروج امن</span>
+            </button>
+          </form>
+        </aside>
+        <section class="workspace">
+          <header class="desktop-header">
+            <div>
+              <span class="eyebrow">سامانه مدیریت محتوا</span>
+              <strong>{% block header_title %}داشبورد{% endblock %}</strong>
+            </div>
+            <div class="admin-identity" aria-label="کاربر واردشده">
+              <span class="avatar" aria-hidden="true">م</span>
+              <div><strong>مدیر سامانه</strong><small>{{ admin_username | default('admin') }}</small></div>
+            </div>
+          </header>
+          <div class="content" id="main-content" tabindex="-1">
+            {% include "components/flash.html" %}
+            {% block content %}{% endblock %}
+          </div>
+        </section>
+      </div>
+    {% endif %}
+  </body>
+</html>
