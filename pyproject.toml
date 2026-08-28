@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-content-platform"
+version = "0.1.0"
+description = "AI-assisted product content and customer support platform"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.16",
+    "fastapi>=0.116",
+    "httpx>=0.28",
+    "itsdangerous>=2.2",
+    "jinja2>=3.1",
+    "pillow>=11.3",
+    "pwdlib[argon2]>=0.2",
+    "pydantic-settings>=2.10",
+    "python-multipart>=0.0.20",
+    "sqlalchemy>=2.0",
+    "uvicorn[standard]>=0.35",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx2>=1.0",
+    "pytest>=8.4",
+    "pytest-cov>=6.2",
+    "ruff>=0.12",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
