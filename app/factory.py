@@ -8,9 +8,11 @@ from app.admin.routes import router as admin_router
 from app.catalog.routes import router as catalog_router
 from app.core.config import Settings
 from app.core.database import build_engine, build_session_factory
+from app.core.logging import configure_logging
 
 
 def create_app(settings: Settings) -> FastAPI:
+    configure_logging(debug=settings.debug)
     app = FastAPI(title=settings.app_name, debug=settings.debug)
     app.state.settings = settings
     app.state.engine = build_engine(settings.database_url)

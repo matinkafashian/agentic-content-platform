@@ -37,6 +37,15 @@ def test_admin_can_login(client):
     assert '<main data-page="dashboard">' in dashboard.text
 
 
+def test_authenticated_admin_does_not_see_login_form(client):
+    assert login(client).status_code == 303
+
+    response = client.get("/admin/login", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/admin"
+
+
 def test_login_rejects_missing_csrf(client):
     response = client.post(
         "/admin/login",

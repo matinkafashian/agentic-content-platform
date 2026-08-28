@@ -49,6 +49,11 @@ def test_filename_extension_must_match_verified_format():
         validate_image(png_bytes(), "photo.txt", "image/png")
 
 
+def test_unsupported_mime_is_rejected_before_decoding():
+    with pytest.raises(InvalidImage, match="نوع تصویر پشتیبانی نمی‌شود"):
+        validate_image(png_bytes(), "photo.png", "application/octet-stream")
+
+
 def test_excessive_pixel_count_is_rejected(monkeypatch):
     monkeypatch.setattr("app.media.images.MAX_IMAGE_PIXELS", 100)
 
