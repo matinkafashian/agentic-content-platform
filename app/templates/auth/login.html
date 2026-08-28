@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ورود مدیر</title>
+  </head>
+  <body>
+    <main>
+      <h1>ورود به پنل مدیریت</h1>
+      {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+      <form method="post" action="/admin/login">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label for="username">نام کاربری</label>
+        <input id="username" name="username" autocomplete="username" required>
+        <label for="password">رمز عبور</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">ورود امن</button>
+      </form>
+    </main>
+  </body>
+</html>

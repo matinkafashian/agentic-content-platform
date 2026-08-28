@@ -1,0 +1,35 @@
+import hmac
+import secrets
+
+from fastapi import HTTPException, Request, status
+from pwdlib import PasswordHash
+
+password_hash = PasswordHash.recommended()
+
+
+def hash_password(password: str) -> str:
+    return password_hash.hash(password)
+
+
+def verify_password(password: str, encoded: str) -> bool:
+    try:
+        return password_hash.verify(password, encoded)
+    except Exception:
+        return False
+
+
+def ensure_csrf_token(request: Request) -> str:
+    token = request.session.get("csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        request.session["csrf_token"] = token
+    return str(token)
+
+
+def validate_csrf(request: Request, submitted: str) -> None:
+    expected = request.session.get("csrf_token", "")
+    if not expected or not hmac.compare_digest(str(expected), submitted):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid CSRF token",
+        )
