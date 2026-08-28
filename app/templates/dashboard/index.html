@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}نمای کلی{% endblock %}
+{% block header_title %}نمای کلی{% endblock %}
+{% block content %}
+<main data-page="dashboard">
+  <section class="page-heading">
+    <div>
+      <span class="section-kicker">امروز در یک نگاه</span>
+      <h1>سلام، آماده‌ای محتوای بعدی را بسازیم؟</h1>
+      <p>محصولات را دقیق نگه دارید؛ تولید محتوا و انتشار در فازهای بعد روی همین اطلاعات قابل اعتماد بنا می‌شود.</p>
+    </div>
+    <a class="button button-primary" href="/admin/products/new" data-action="create-product">
+      <span aria-hidden="true">＋</span> افزودن محصول
+    </a>
+  </section>
+
+  <section class="metrics-grid" aria-label="شاخص‌های کاتالوگ">
+    <article class="metric-card metric-total" data-metric="total-products" data-value="{{ total_products }}">
+      <div class="metric-icon" aria-hidden="true">▦</div>
+      <div><span>کل محصولات</span><strong>{{ total_products | fa_digits }}</strong><small>ثبت‌شده در کاتالوگ</small></div>
+    </article>
+    <article class="metric-card metric-active" data-metric="active-products" data-value="{{ active_products }}">
+      <div class="metric-icon" aria-hidden="true">✓</div>
+      <div><span>محصولات فعال</span><strong>{{ active_products | fa_digits }}</strong><small>آماده استفاده در محتوا</small></div>
+    </article>
+    <article class="metric-card metric-ready" data-metric="products-with-image" data-value="{{ products_with_image }}">
+      <div class="metric-icon" aria-hidden="true">◈</div>
+      <div><span>دارای تصویر</span><strong>{{ products_with_image | fa_digits }}</strong><small>دارای فایل معتبر و امن</small></div>
+    </article>
+  </section>
+
+  <section class="dashboard-grid">
+    <article class="panel readiness-panel">
+      <div class="panel-heading">
+        <div><span class="section-kicker">آمادگی کاتالوگ</span><h2>وضعیت فعال‌سازی</h2></div>
+        <span class="score-pill">{{ active_rate | fa_digits }}٪</span>
+      </div>
+      <p>نسبت محصولات فعال به کل کاتالوگ؛ محصول غیرفعال در محتوای آینده پیشنهاد نمی‌شود.</p>
+      <div class="progress-track" role="progressbar" aria-label="درصد محصولات فعال" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ active_rate }}">
+        <span style="width: {{ active_rate }}%"></span>
+      </div>
+      <div class="progress-legend">
+        <span><i class="legend-active"></i>{{ active_products | fa_digits }} فعال</span>
+        <span><i class="legend-inactive"></i>{{ inactive_products | fa_digits }} غیرفعال</span>
+      </div>
+    </article>
+
+    <article class="panel recent-panel">
+      <div class="panel-heading">
+        <div><span class="section-kicker">آخرین تغییرات</span><h2>محصولات اخیر</h2></div>
+        <a class="text-link" href="/admin/products">مشاهده همه</a>
+      </div>
+      {% if recent_products %}
+        <ul class="recent-list">
+          {% for product in recent_products %}
+            <li>
+              <a href="/admin/products/{{ product.id }}">
+                {% if product.primary_image_path %}
+                  <img src="/uploads/{{ product.primary_image_path }}" alt="">
+                {% else %}
+                  <span class="product-placeholder" aria-hidden="true">{{ product.name[:1] }}</span>
+                {% endif %}
+                <span class="recent-copy"><strong>{{ product.name }}</strong><small>{{ product.price | price_fa }} تومان</small></span>
+                <span class="badge {{ 'badge-success' if product.active else 'badge-muted' }}">{{ 'فعال' if product.active else 'غیرفعال' }}</span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty-compact"><span aria-hidden="true">◇</span><p>اولین محصول را ثبت کنید تا اینجا دیده شود.</p></div>
+      {% endif %}
+    </article>
+  </section>
+</main>
+{% endblock %}

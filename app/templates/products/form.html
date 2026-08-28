@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ "ویرایش محصول" if product else "محصول جدید" }}{% endblock %}
+{% block header_title %}{{ "ویرایش محصول" if product else "محصول جدید" }}{% endblock %}
+{% block content %}
+<main data-page="product-form">
+  <nav class="breadcrumbs" aria-label="مسیر صفحه">
+    <a href="/admin/products">محصولات</a><span aria-hidden="true">/</span><span aria-current="page">{{ "ویرایش" if product else "افزودن" }}</span>
+  </nav>
+  <section class="page-heading page-heading-compact">
+    <div><span class="section-kicker">{{ "به‌روزرسانی اطلاعات" if product else "ساخت رکورد پایه" }}</span><h1>{{ "ویرایش «" ~ product.name ~ "»" if product else "افزودن محصول جدید" }}</h1><p>اطلاعات واقعی و قابل استناد وارد کنید؛ این داده‌ها بعداً منبع ایجنت خواهند بود.</p></div>
+  </section>
+
+  <form method="post" enctype="multipart/form-data" action="{{ '/admin/products/' ~ product.id if product else '/admin/products' }}" class="product-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="form-main">
+      <section class="form-card">
+        <div class="form-card-heading"><span class="step-number">۱</span><div><h2>مشخصات اصلی</h2><p>نام، توضیح و وضعیت فروش محصول</p></div></div>
+        <div class="field-grid">
+          <div class="field field-wide">
+            <label for="name">نام محصول <span aria-hidden="true">*</span></label>
+            <input id="name" name="name" value="{{ values.name | default('') }}" maxlength="200" required aria-describedby="name-hint {{ 'name-error' if errors.name else '' }}">
+            <small id="name-hint">نامی کوتاه و واضح که مشتری می‌شناسد.</small>
+            {% if errors.name %}<p class="field-error" id="name-error" role="alert">{{ errors.name }}</p>{% endif %}
+          </div>
+          <div class="field field-wide">
+            <label for="description">توضیحات محصول</label>
+            <textarea id="description" name="description" rows="5">{{ values.description | default('') }}</textarea>
+          </div>
+          <div class="field">
+            <label for="price">قیمت (تومان) <span aria-hidden="true">*</span></label>
+            <input id="price" name="price" inputmode="decimal" value="{{ values.price | default('') }}" required>
+            {% if errors.price %}<p class="field-error" role="alert">{{ errors.price }}</p>{% endif %}
+          </div>
+          <div class="field">
+            <label for="availability">وضعیت موجودی</label>
+            <select id="availability" name="availability">
+              <option value="available" {{ 'selected' if values.availability | default('available') == 'available' else '' }}>موجود</option>
+              <option value="order" {{ 'selected' if values.availability == 'order' else '' }}>سفارشی</option>
+              <option value="unavailable" {{ 'selected' if values.availability == 'unavailable' else '' }}>ناموجود</option>
+            </select>
+            {% if errors.availability %}<p class="field-error" role="alert">{{ errors.availability }}</p>{% endif %}
+          </div>
+          <div class="field field-wide">
+            <label for="shipping_info">اطلاعات ارسال</label>
+            <textarea id="shipping_info" name="shipping_info" rows="3">{{ values.shipping_info | default('') }}</textarea>
+          </div>
+          <div class="field field-wide">
+            <label for="tags">هشتگ‌ها و کلیدواژه‌ها</label>
+            <input id="tags" name="tags" value="{{ values.tags | default('') }}" placeholder="کانتر، دکوراسیون، چوبی">
+            <small>عبارت‌ها را با ویرگول فارسی یا انگلیسی جدا کنید.</small>
+            {% if errors.tags %}<p class="field-error" role="alert">{{ errors.tags }}</p>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="form-card">
+        <div class="form-card-heading"><span class="step-number">۲</span><div><h2>ویژگی‌های محصول</h2><p>جزئیاتی مثل جنس، ابعاد یا رنگ</p></div></div>
+        <div data-attribute-list>
+          {% if values.attributes %}
+            {% for key, value in values.attributes.items() %}
+              <div class="attribute-row"><input name="attribute_key" aria-label="نام ویژگی" value="{{ key }}" placeholder="مثلاً جنس"><input name="attribute_value" aria-label="مقدار ویژگی" value="{{ value }}" placeholder="مثلاً MDF"><button class="icon-button remove-row" type="button" data-remove-row aria-label="حذف این ویژگی">×</button></div>
+            {% endfor %}
+          {% else %}
+            <div class="attribute-row"><input name="attribute_key" aria-label="نام ویژگی" placeholder="مثلاً جنس"><input name="attribute_value" aria-label="مقدار ویژگی" placeholder="مثلاً MDF"><button class="icon-button remove-row" type="button" data-remove-row aria-label="حذف این ویژگی">×</button></div>
+          {% endif %}
+        </div>
+        <button class="button button-ghost button-small" type="button" data-add-attribute>＋ افزودن ویژگی</button>
+      </section>
+    </div>
+
+    <aside class="form-sidebar">
+      <section class="form-card sticky-card">
+        <div class="form-card-heading"><span class="step-number">۳</span><div><h2>تصویر اصلی</h2><p>مرجع ادیت هوشمند آینده</p></div></div>
+        <label class="upload-zone" for="image" data-upload-zone>
+          {% if product and product.primary_image_path %}
+            <img src="/uploads/{{ product.primary_image_path }}" alt="پیش‌نمایش {{ product.name }}" data-image-preview>
+            <span class="upload-copy is-hidden" data-upload-copy><strong>تصویر را انتخاب کنید</strong><small>یا فایل را اینجا رها کنید</small></span>
+          {% else %}
+            <img src="" alt="پیش‌نمایش تصویر انتخابی" data-image-preview hidden>
+            <span class="upload-copy" data-upload-copy><span class="upload-icon" aria-hidden="true">↥</span><strong>تصویر را انتخاب کنید</strong><small>یا فایل را اینجا رها کنید</small></span>
+          {% endif %}
+        </label>
+        <input class="visually-hidden" id="image" name="image" type="file" accept="image/jpeg,image/png,image/webp" {{ '' if product else 'required' }} data-image-input>
+        <p class="upload-hint">JPEG، PNG یا WebP · حداکثر ۱۵ مگابایت · تا ۲۰ مگاپیکسل</p>
+        {% if errors.image %}<p class="field-error" role="alert">{{ errors.image }}</p>{% endif %}
+        <label class="switch-row" for="active"><span><strong>محصول فعال باشد</strong><small>برای محتوای آینده قابل انتخاب است</small></span><input id="active" name="active" type="checkbox" value="true" {% if values.active %}checked{% endif %}><i aria-hidden="true"></i></label>
+      </section>
+    </aside>
+
+    <div class="form-actions">
+      <a class="button button-secondary" href="{{ '/admin/products/' ~ product.id if product else '/admin/products' }}">انصراف</a>
+      <button class="button button-primary" type="submit">ذخیره محصول</button>
+    </div>
+  </form>
+</main>
+{% endblock %}

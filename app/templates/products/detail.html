@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block header_title %}جزئیات محصول{% endblock %}
+{% block content %}
+<main data-page="product-detail">
+  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="/admin/products">محصولات</a><span aria-hidden="true">/</span><span aria-current="page">{{ product.name }}</span></nav>
+  <section class="detail-heading">
+    <div><span class="badge {{ 'badge-success' if product.active else 'badge-muted' }}">{{ 'فعال' if product.active else 'غیرفعال' }}</span><h1>{{ product.name }}</h1><p>{{ product.description or "برای این محصول هنوز توضیحی ثبت نشده است." }}</p></div>
+    <a class="button button-primary" href="/admin/products/{{ product.id }}/edit">ویرایش محصول</a>
+  </section>
+  <section class="detail-grid">
+    <article class="detail-media panel">
+      {% if product.primary_image_path %}<img src="/uploads/{{ product.primary_image_path }}" alt="{{ product.name }}">{% else %}<span class="media-fallback" aria-hidden="true">{{ product.name[:1] }}</span>{% endif %}
+    </article>
+    <article class="panel detail-facts">
+      <div class="fact-row"><span>قیمت</span><strong>{{ product.price | price_fa }} تومان</strong></div>
+      <div class="fact-row"><span>وضعیت موجودی</span><strong>{{ product.availability }}</strong></div>
+      <div class="fact-row"><span>ارسال</span><strong>{{ product.shipping_info or "ثبت نشده" }}</strong></div>
+      {% for key, value in product.attributes.items() %}<div class="fact-row"><span>{{ key }}</span><strong>{{ value }}</strong></div>{% endfor %}
+      {% if product.tags %}<div class="tag-list" aria-label="هشتگ‌ها">{% for tag in product.tags %}<span>#{{ tag }}</span>{% endfor %}</div>{% endif %}
+    </article>
+  </section>
+</main>
+{% endblock %}
