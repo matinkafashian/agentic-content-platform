@@ -1,3 +1,4 @@
+import mimetypes
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -12,6 +13,7 @@ from app.core.logging import configure_logging
 
 
 def create_app(settings: Settings) -> FastAPI:
+    mimetypes.add_type("font/woff2", ".woff2")
     configure_logging(debug=settings.debug)
     app = FastAPI(title=settings.app_name, debug=settings.debug)
     app.state.settings = settings
