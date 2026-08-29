@@ -29,8 +29,14 @@ def test_dashboard_has_useful_phase_one_metrics(authenticated_client):
 def test_dashboard_static_assets_are_served(authenticated_client):
     stylesheet = authenticated_client.get("/static/css/app.css")
     script = authenticated_client.get("/static/js/app.js")
+    persian_font = authenticated_client.get(
+        "/static/fonts/vazirmatn/Vazirmatn-RD-Variable.woff2"
+    )
 
     assert stylesheet.status_code == 200
     assert "--color-accent" in stylesheet.text
     assert script.status_code == 200
     assert "data-nav-toggle" in script.text
+    assert persian_font.status_code == 200
+    assert persian_font.headers["content-type"] == "font/woff2"
+    assert persian_font.content.startswith(b"wOF2")
