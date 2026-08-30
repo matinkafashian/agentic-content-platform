@@ -9,12 +9,32 @@ from app.catalog.repository import ProductRepository
 from app.content.models import DraftStatus
 from app.content.providers import TemplateContentProvider
 from app.content.repository import ContentRepository
+from app.content.schemas import GeneratedContent
 from app.content.service import (
     ContentInputError,
     ContentNotFound,
     ContentService,
     ContentStateError,
 )
+
+
+class CapturingProvider:
+    name = "capture"
+
+    def __init__(self):
+        self.request = None
+
+    def generate(self, request):
+        self.request = request
+        return GeneratedContent(
+            headline="معرفی تازه",
+            body="متن تازه و مستقل از نمونه قبلی",
+            benefits=["✅ ویژگی ثبت‌شده"],
+            cta=request.brand.default_cta,
+            hashtags=["هایکا"],
+            used_emojis=["✅"],
+            content_angle=request.requested_angle,
+        )
 
 
 @pytest.fixture
@@ -150,10 +170,33 @@ def test_generate_rejects_inactive_or_missing_product(content_service, product):
 
 
 def test_generate_rejects_blank_brief(content_service, product):
-    with pytest.raises(ContentInputError):
-        content_service.generate(
-            product.id, user_brief="  ", requested_angle="product_intro"
-        )
+    generated = content_service.generate(
+        product.id, user_brief="  ", requested_angle="product_intro"
+    )
+
+    assert generated.user_brief == ""
+
+
+def test_generation_receives_recent_approved_captions_as_style_examples(
+    content_service, draft, db_session, product
+):
+    content_service.approve(draft.id)
+    capture = CapturingProvider()
+    service = ContentService(
+        ContentRepository(db_session),
+        ProductRepository(db_session),
+        BrandRepository(db_session),
+        capture,
+    )
+
+    service.generate(
+        product.id,
+        user_brief="",
+        requested_angle="trust",
+    )
+
+    assert capture.request is not None
+    assert capture.request.style_examples == [draft.final_caption]
 
 
 def test_unknown_draft_raises_content_not_found(content_service):

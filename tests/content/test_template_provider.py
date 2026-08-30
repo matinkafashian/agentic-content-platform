@@ -56,6 +56,17 @@ def test_template_provider_is_deterministic_for_the_same_request():
     assert first == second
 
 
+def test_template_provider_can_generate_without_manager_note():
+    request = content_request().model_copy(update={"user_brief": ""})
+
+    generated = TemplateContentProvider().generate(request)
+    caption = compose_caption(generated, request)
+
+    assert request.product.description in generated.body
+    assert request.product.name in caption
+    assert "#درب_ممبران" in caption
+
+
 def test_template_provider_uses_only_manager_brief_when_no_benefit_facts_exist():
     request = content_request().model_copy(
         update={

@@ -97,13 +97,19 @@ class ContentGenerationRequest(BaseModel):
 
     product: ProductFacts
     brand: BrandFacts
-    user_brief: str = Field(min_length=10, max_length=2000)
+    user_brief: str = Field(default="", max_length=500)
     requested_angle: ContentAngle
+    style_examples: list[str] = Field(default_factory=list, max_length=3)
 
     @field_validator("user_brief", mode="before")
     @classmethod
     def strip_brief(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("style_examples")
+    @classmethod
+    def normalize_style_examples(cls, values: list[str]) -> list[str]:
+        return _unique_text(values)
 
 
 class GeneratedContent(BaseModel):
@@ -131,4 +137,3 @@ class GeneratedContent(BaseModel):
     @classmethod
     def normalize_hashtags(cls, values: list[str]) -> list[str]:
         return _unique_hashtags(values)
-

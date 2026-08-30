@@ -9,16 +9,18 @@ from app.factory import create_app
 def make_settings(
     tmp_path, *, secret_key: str = "t" * 32, **overrides: object
 ) -> Settings:
-    return Settings(
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
-        upload_dir=tmp_path / "uploads",
-        secret_key=secret_key,
-        admin_username="admin",
-        admin_password_hash="$argon2id$v=19$m=65536,t=3,p=4$invalid$invalid",
-        publishing_worker_enabled=False,
-        debug=True,
-        **overrides,
-    )
+    values: dict[str, object] = {
+        "database_url": f"sqlite:///{tmp_path / 'test.db'}",
+        "upload_dir": tmp_path / "uploads",
+        "secret_key": secret_key,
+        "admin_username": "admin",
+        "admin_password_hash": "$argon2id$v=19$m=65536,t=3,p=4$invalid$invalid",
+        "openai_api_key": None,
+        "publishing_worker_enabled": False,
+        "debug": True,
+    }
+    values.update(overrides)
+    return Settings(**values)
 
 
 def test_health_returns_service_status(tmp_path):

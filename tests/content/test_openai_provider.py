@@ -65,7 +65,10 @@ def test_openai_provider_uses_responses_structured_output_and_verified_cta():
         client=client,
     )
 
-    generated = provider.generate(content_request())
+    request_with_examples = content_request().model_copy(
+        update={"style_examples": ["نمونه تأییدشده قبلی با لحن حرفه‌ای."]}
+    )
+    generated = provider.generate(request_with_examples)
 
     assert provider.name == "openai:gpt-test-model"
     assert generated.headline.startswith("✨")
@@ -88,6 +91,11 @@ def test_openai_provider_uses_responses_structured_output_and_verified_cta():
     assert payload["text"]["format"]["schema"]["properties"]["content_angle"][
         "enum"
     ] == ["product_intro"]
+    model_input = json.loads(payload["input"])
+    assert model_input["approved_style_examples"] == [
+        "نمونه تأییدشده قبلی با لحن حرفه‌ای."
+    ]
+    assert "کپی" in payload["instructions"]
 
 
 @pytest.mark.parametrize("status_code", [401, 429, 500])

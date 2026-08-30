@@ -5,7 +5,7 @@
 <main>
   <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="/admin">نمای کلی</a><span aria-hidden="true">/</span><span aria-current="page">ساخت محتوا</span></nav>
   <section class="page-heading">
-    <div><span class="eyebrow">پیش‌نویس قابل‌ویرایش</span><h1>از چند خط، یک کپشن کامل بسازید</h1><p>محصول و زاویه روایت را انتخاب کنید؛ سامانه اطلاعات قطعی کاتالوگ، آیکن‌های مرتبط و هشتگ‌ها را کنار خلاصه شما می‌چیند.</p></div>
+    <div><span class="eyebrow">پیش‌نویس قابل‌ویرایش</span><h1>از اطلاعات محصول، یک کپشن کامل بسازید</h1><p>محصول و زاویه روایت را انتخاب کنید؛ سامانه از اطلاعات قطعی کاتالوگ، لحن برند و نمونه‌های تأییدشده قبلی برای ساخت متن، ایموجی و هشتگ استفاده می‌کند.</p></div>
   </section>
   {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
   {% if products %}
@@ -19,8 +19,8 @@
       </div>
     </section>
     <section class="panel form-card">
-      <div class="form-card-heading"><span class="step-number">۲</span><div><h2>خلاصه کوتاه شما</h2><p>نکته‌ای را بنویسید که باید محور این پست باشد.</p></div></div>
-      <div class="field"><label for="user-brief">چه چیزی درباره این محصول گفته شود؟ <span>*</span></label><textarea id="user-brief" name="user_brief" rows="7" required placeholder="مثلاً این مدل برای پروژه‌های نئوکلاسیک معرفی شود و امکان سفارشی‌سازی آن برجسته شود.">{{ values.user_brief | default('') }}</textarea><small>قیمت و مشخصات ثبت‌شده خودکار اضافه می‌شوند؛ ویژگی تأییدنشده، تخفیف یا گارانتی را حدس نمی‌زنیم.</small></div>
+      <div class="form-card-heading"><span class="step-number">۲</span><div><h2>نکته ویژه این پست (اختیاری)</h2><p>فقط اگر می‌خواهید روی موضوع خاصی تأکید شود، یک جمله کوتاه بنویسید.</p></div></div>
+      <div class="field"><label for="user-brief">تأکید این پست</label><textarea id="user-brief" name="user_brief" rows="3" maxlength="500" placeholder="مثلاً روی امکان سفارشی‌سازی برای پروژه‌های نئوکلاسیک تأکید شود.">{{ values.user_brief | default('') }}</textarea><small>اگر خالی بماند، هوش مصنوعی بر اساس محصول، زاویه انتخاب‌شده و الگوهای تأییدشده قبلی متن را کامل می‌سازد. ویژگی تأییدنشده، تخفیف یا گارانتی حدس زده نمی‌شود.</small></div>
     </section>
     <div class="form-actions"><a class="button button-secondary" href="/admin/products">بازگشت</a><button class="button button-primary" type="submit">{{ 'ساخت پیش‌نویس با هوش مصنوعی' if provider_name[:7] == 'openai:' else 'ساخت پیش‌نویس آزمایشی' }}</button></div>
   </form>

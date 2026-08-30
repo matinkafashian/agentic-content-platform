@@ -1,7 +1,21 @@
 import re
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
+
+from PIL import Image
 
 from app.content.models import ContentDraft, DraftStatus
+
+
+class SuccessfulImageEditor:
+    name = "openai:gpt-image-2"
+
+    def edit(self, *, source, filename, mime_type, background_style):
+        from app.media.images import validate_image
+
+        output = BytesIO()
+        Image.new("RGB", (64, 64), "teal").save(output, format="PNG")
+        return validate_image(output.getvalue(), "edited.png", "image/png")
 
 
 def _draft_id(client, csrf_token, product):
@@ -98,6 +112,49 @@ def test_automatic_mode_can_package_waiting_draft(
     assert bundled.status_code == 303
     with authenticated_client.app.state.session_factory() as session:
         assert session.get(ContentDraft, draft_id).status == DraftStatus.APPROVED.value
+
+
+def test_automatic_mode_generates_required_studio_image_before_bundle(
+    authenticated_client, csrf_token, product, png_upload
+):
+    _set_product_image(authenticated_client, product, png_upload)
+    draft_id = _draft_id(authenticated_client, csrf_token, product)
+    authenticated_client.app.state.image_editor = SuccessfulImageEditor()
+    authenticated_client.post(
+        "/admin/publishing/mode",
+        data={"csrf_token": csrf_token, "mode": "automatic"},
+    )
+
+    response = authenticated_client.post(
+        f"/admin/content/{draft_id}/bundle",
+        data={"csrf_token": csrf_token},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    image = authenticated_client.get(f"/admin/content/{draft_id}/image")
+    assert image.status_code == 200
+    assert image.content != png_upload
+
+
+def test_manual_mode_requires_studio_image_when_openai_editor_is_available(
+    authenticated_client, csrf_token, product, png_upload
+):
+    _set_product_image(authenticated_client, product, png_upload)
+    draft_id = _draft_id(authenticated_client, csrf_token, product)
+    authenticated_client.app.state.image_editor = SuccessfulImageEditor()
+    authenticated_client.post(
+        f"/admin/content/{draft_id}/approve",
+        data={"csrf_token": csrf_token},
+    )
+
+    response = authenticated_client.post(
+        f"/admin/content/{draft_id}/bundle",
+        data={"csrf_token": csrf_token},
+    )
+
+    assert response.status_code == 422
+    assert "نسخه استودیویی" in response.text
 
 
 def test_paused_mode_prevents_manual_run(

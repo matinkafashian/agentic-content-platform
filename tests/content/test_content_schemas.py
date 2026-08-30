@@ -50,6 +50,15 @@ def test_request_rejects_unknown_content_angle():
         valid_request(requested_angle="made_up_angle")
 
 
+def test_manager_note_is_optional_and_short():
+    request = valid_request(user_brief="  ")
+
+    assert request.user_brief == ""
+
+    with pytest.raises(ValidationError):
+        valid_request(user_brief="ن" * 501)
+
+
 def test_generated_content_rejects_empty_benefits():
     with pytest.raises(ValidationError):
         GeneratedContent(
@@ -88,4 +97,3 @@ def test_generated_content_keeps_at_most_six_hashtags():
             used_emojis=["✨"],
             content_angle="product_intro",
         )
-

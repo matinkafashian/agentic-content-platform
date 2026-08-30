@@ -62,6 +62,44 @@ def _image_service(request: Request, db: Session) -> EditedImageService:
     )
 
 
+def _generate_and_store_edited_image(
+    draft_id: int,
+    request: Request,
+    db: Session,
+    *,
+    background_style: str,
+):
+    editor = request.app.state.image_editor
+    if editor is None:
+        raise ImageEditorError("سرویس ویرایش تصویر فعال نیست")
+    draft = _content_service(request, db).get(draft_id)
+    relative_path = draft.product.primary_image_path
+    if not relative_path:
+        raise ValueError("برای این محصول هنوز تصویر اصلی ثبت نشده است")
+    source_path = resolve_product_original_path(
+        request.app.state.settings.upload_dir,
+        draft.product.id,
+        relative_path,
+    )
+    if not source_path.is_file():
+        raise ValueError("فایل تصویر اصلی محصول پیدا نشد")
+    mime_type = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+    }.get(source_path.suffix.lower())
+    if mime_type is None:
+        raise ValueError("فرمت تصویر اصلی برای ویرایش پشتیبانی نمی‌شود")
+    edited = editor.edit(
+        source=source_path.read_bytes(),
+        filename=source_path.name,
+        mime_type=mime_type,
+        background_style=background_style,
+    )
+    return _image_service(request, db).attach_or_replace(draft_id, edited)
+
+
 def _render_new(
     request: Request,
     db: Session,
@@ -218,10 +256,30 @@ def create_post_bundle(
         PublishingRepository(db),
         request.app.state.settings.upload_dir,
         request.app.state.platform_adapters,
+        require_edited_image=request.app.state.image_editor is not None,
     )
     try:
+        control = service.control()
+        edited_image = EditedImageRepository(db).for_draft(draft_id)
+        if (
+            control.mode == "automatic"
+            and request.app.state.image_editor is not None
+            and edited_image is None
+        ):
+            _generate_and_store_edited_image(
+                draft_id,
+                request,
+                db,
+                background_style="adaptive_studio",
+            )
         service.create_bundle(draft_id)
     except BundleInputError as exc:
+        return _render_detail(request, db, draft_id, error=str(exc), status_code=422)
+    except ContentNotFound as exc:
+        raise HTTPException(status_code=404, detail="Content draft not found") from exc
+    except (ImageEditorError, InvalidStoredImagePath) as exc:
+        return _render_detail(request, db, draft_id, error=str(exc), status_code=503)
+    except ValueError as exc:
         return _render_detail(request, db, draft_id, error=str(exc), status_code=422)
     return RedirectResponse(
         f"/admin/content/{draft_id}?bundle_saved=1#publishing-bundle",
@@ -249,59 +307,21 @@ def generate_edited_image(
             status_code=503,
         )
     try:
-        draft = _content_service(request, db).get(draft_id)
-        relative_path = draft.product.primary_image_path
-        if not relative_path:
-            return _render_detail(
-                request,
-                db,
-                draft_id,
-                error="برای این محصول هنوز تصویر اصلی ثبت نشده است.",
-                status_code=422,
-            )
-        source_path = resolve_product_original_path(
-            request.app.state.settings.upload_dir,
-            draft.product.id,
-            relative_path,
-        )
-        if not source_path.is_file():
-            return _render_detail(
-                request,
-                db,
-                draft_id,
-                error="فایل تصویر اصلی محصول پیدا نشد.",
-                status_code=422,
-            )
-        mime_type = {
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".png": "image/png",
-            ".webp": "image/webp",
-        }.get(source_path.suffix.lower())
-        if mime_type is None:
-            return _render_detail(
-                request,
-                db,
-                draft_id,
-                error="فرمت تصویر اصلی برای ویرایش پشتیبانی نمی‌شود.",
-                status_code=422,
-            )
-        edited = editor.edit(
-            source=source_path.read_bytes(),
-            filename=source_path.name,
-            mime_type=mime_type,
+        _generate_and_store_edited_image(
+            draft_id,
+            request,
+            db,
             background_style=background_style,
-        )
-        _image_service(request, db).attach_or_replace(draft_id, edited)
-    except ValueError as exc:
-        return _render_detail(
-            request, db, draft_id, error=str(exc), status_code=422
         )
     except ContentNotFound as exc:
         raise HTTPException(status_code=404, detail="Content draft not found") from exc
     except (ImageEditorError, InvalidStoredImagePath) as exc:
         return _render_detail(
             request, db, draft_id, error=str(exc), status_code=503
+        )
+    except ValueError as exc:
+        return _render_detail(
+            request, db, draft_id, error=str(exc), status_code=422
         )
     return RedirectResponse(
         f"/admin/content/{draft_id}?image_saved=1#image-studio",

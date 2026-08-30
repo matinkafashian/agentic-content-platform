@@ -84,6 +84,7 @@ class ContentService:
             previous.product_id,
             previous.user_brief,
             previous.requested_angle,
+            exclude_series_key=previous.series_key,
         )
         generated = self.provider.generate(request)
         latest = self.repository.latest_revision(previous.series_key)
@@ -163,6 +164,8 @@ class ContentService:
         product_id: int,
         user_brief: str,
         requested_angle: str,
+        *,
+        exclude_series_key: str | None = None,
     ) -> ContentGenerationRequest:
         product = self.product_repository.get(product_id)
         if product is None or not product.active:
@@ -176,6 +179,11 @@ class ContentService:
                 brand=self._brand_facts(brand),
                 user_brief=user_brief,
                 requested_angle=requested_angle,
+                style_examples=self.repository.recent_approved_captions(
+                    product_id,
+                    exclude_series_key=exclude_series_key,
+                    limit=3,
+                ),
             )
         except ValidationError as exc:
             raise ContentInputError("اطلاعات تولید محتوا کامل یا معتبر نیست") from exc

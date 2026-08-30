@@ -28,9 +28,13 @@ class TemplateContentProvider:
     def generate(self, request: ContentGenerationRequest) -> GeneratedContent:
         product = request.product
         brand = request.brand
-        body_parts = [request.user_brief]
+        body_parts = [request.user_brief] if request.user_brief else []
         if product.description and product.description not in body_parts:
             body_parts.append(product.description)
+        if not body_parts:
+            body_parts.append(
+                f"{product.name} بر اساس اطلاعات ثبت‌شده محصول معرفی می‌شود."
+            )
 
         benefits = [
             f"✅ {key}: {value}" for key, value in product.attributes.items()
@@ -39,7 +43,8 @@ class TemplateContentProvider:
             benefits.append(f"🚚 {product.shipping_info}")
         benefits.extend(f"⭐ {claim}" for claim in brand.approved_claims)
         if not benefits:
-            benefits.append(f"🔹 {request.user_brief}")
+            fallback = request.user_brief or product.description or product.name
+            benefits.append(f"🔹 {fallback}")
 
         hashtags = list(
             dict.fromkeys([*product.tags, *brand.default_hashtags])

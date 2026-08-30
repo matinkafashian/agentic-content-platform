@@ -33,10 +33,13 @@ class PublishingService:
         repository: PublishingRepository,
         upload_root: Path,
         adapters: dict[str, PlatformAdapter],
+        *,
+        require_edited_image: bool = False,
     ) -> None:
         self.repository = repository
         self.upload_root = upload_root
         self.adapters = adapters
+        self.require_edited_image = require_edited_image
 
     def control(self):
         control = self.repository.control()
@@ -206,6 +209,10 @@ class PublishingService:
             path = self._private_asset_path(edited.relative_path)
             mime = edited.mime_type
         else:
+            if self.require_edited_image:
+                raise BundleInputError(
+                    "ابتدا نسخه استودیویی تصویر را بسازید و بررسی کنید"
+                )
             relative = draft.product.primary_image_path
             if not relative:
                 raise BundleInputError("برای بسته نهایی باید تصویر محصول موجود باشد")

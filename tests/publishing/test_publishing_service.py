@@ -78,11 +78,12 @@ def draft(content_service, product):
     )
 
 
-def _service(db_session, tmp_path, adapter=None):
+def _service(db_session, tmp_path, adapter=None, *, require_edited_image=False):
     return PublishingService(
         PublishingRepository(db_session),
         tmp_path / "uploads",
         {"sandbox": adapter or SuccessfulAdapter()},
+        require_edited_image=require_edited_image,
     )
 
 
@@ -157,6 +158,18 @@ def test_manual_mode_requires_approved_draft(
 
     with pytest.raises(BundleInputError, match="تأیید"):
         _service(db_session, tmp_path).create_bundle(draft.id)
+
+
+def test_real_image_workflow_requires_edited_image_before_bundle(
+    db_session, tmp_path, content_service, draft, product
+):
+    _attach_original_image(db_session, tmp_path, product)
+    _approved_draft(content_service, draft)
+
+    with pytest.raises(BundleInputError, match="نسخه استودیویی"):
+        _service(
+            db_session, tmp_path, require_edited_image=True
+        ).create_bundle(draft.id)
 
 
 def test_automatic_mode_approves_safe_waiting_draft(

@@ -31,6 +31,7 @@ def client(tmp_path, admin_credentials) -> TestClient:
         secret_key="test-secret-key-that-is-at-least-32-characters",
         admin_username=admin_credentials["username"],
         admin_password_hash=admin_credentials["password_hash"],
+        openai_api_key=None,
         publishing_worker_enabled=False,
         debug=True,
     )

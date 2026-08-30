@@ -61,12 +61,15 @@ def test_content_form_has_persian_guidance_and_all_angles(
 ):
     page = authenticated_client.get(f"/admin/content/new?product_id={product.id}")
 
-    assert "خلاصه کوتاه شما" in page.text
+    assert "نکته ویژه این پست (اختیاری)" in page.text
     assert "معرفی محصول" in page.text
     assert "آموزشی" in page.text
     assert "پرسش رایج" in page.text
     assert "اعتمادسازی" in page.text
     assert "راهنمای سفارش" in page.text
+    assert 'name="user_brief"' in page.text
+    assert 'name="user_brief" rows="3" maxlength="500"' in page.text
+    assert 'name="user_brief" rows="3" maxlength="500" required' not in page.text
 
 
 def test_openai_mode_is_clear_in_form_and_generated_preview(
