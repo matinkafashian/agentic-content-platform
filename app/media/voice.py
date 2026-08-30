@@ -57,7 +57,7 @@ def validate_voice(
         raise InvalidVoice("فایل Voice خالی است")
     if len(data) > MAX_VOICE_BYTES:
         raise InvalidVoice("حجم Voice بیشتر از حد مجاز است")
-    mime_type = content_type.lower().strip()
+    mime_type = content_type.partition(";")[0].lower().strip()
     expected_suffix = MIME_SUFFIXES.get(mime_type)
     if expected_suffix is None:
         raise InvalidVoice("نوع Voice پشتیبانی نمی‌شود")
@@ -106,4 +106,3 @@ def resolve_private_voice_path(root: Path, relative_path: str) -> Path:
     if not resolved.is_relative_to(private_root):
         raise InvalidVoice("مسیر Voice معتبر نیست")
     return resolved
-

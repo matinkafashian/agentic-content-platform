@@ -120,7 +120,7 @@ def test_voice_upload_is_private_and_byte_identical(
     uploaded = authenticated_client.post(
         f"/admin/content/{draft_id}/voice",
         data={"csrf_token": csrf_token, "duration_ms": "1500"},
-        files={"voice": ("recording.webm", voice, "audio/webm")},
+        files={"voice": ("recording.webm", voice, "audio/webm;codecs=opus")},
         follow_redirects=False,
     )
     private_response = authenticated_client.get(

@@ -31,6 +31,20 @@ def test_supported_voice_is_saved_without_byte_changes(
     assert filename not in path.name
 
 
+def test_browser_recording_mime_with_opus_codec_is_accepted():
+    data = b"\x1aE\xdf\xa3" + b"\x00" * 32
+
+    voice = validate_voice(
+        data,
+        "recording.webm",
+        "audio/webm;codecs=opus",
+        duration_ms=1500,
+    )
+
+    assert voice.mime_type == "audio/webm"
+    assert voice.suffix == ".webm"
+
+
 @pytest.mark.parametrize(
     "data,filename,mime",
     [
@@ -78,4 +92,3 @@ def test_private_voice_path_cannot_escape_upload_root(tmp_path):
         resolve_private_voice_path(tmp_path, "private/voices/1/../../secret.webm")
     with pytest.raises(InvalidVoice, match="مسیر"):
         resolve_private_voice_path(tmp_path, "C:\\secret.webm")
-

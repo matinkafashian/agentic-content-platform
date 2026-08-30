@@ -91,3 +91,7 @@ def test_voice_recorder_has_accessible_controls_and_private_source(
     assert f'src="/admin/content/{draft_id}/voice"' in page.text
     assert "/uploads/private" not in page.text
     assert 'src="/static/js/voice-recorder.js"' in page.text
+    assert 'type="file" name="voice"' in page.text
+    assert 'type="file" name="voice" hidden' in page.text
+    assert "فایل وویس" not in page.text
+    assert "یک فایل صوتی انتخاب کنید" not in page.text

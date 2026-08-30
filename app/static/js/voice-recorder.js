@@ -7,6 +7,7 @@
   const preview = root.querySelector("[data-record-preview]");
   const fileInput = root.querySelector("[data-record-file]");
   const durationInput = root.querySelector("[data-record-duration]");
+  const saveButton = root.querySelector("[data-record-save]");
   const indicator = root.querySelector("[data-recording-indicator]");
   const message = root.querySelector("[data-record-message]");
   const maximumDuration = 600000;
@@ -47,6 +48,14 @@
     const mimeType = recorder.mimeType || "audio/webm";
     const extension = mimeType.includes("ogg") ? "ogg" : "webm";
     const blob = new Blob(chunks, { type: mimeType });
+    if (!blob.size) {
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      saveButton.disabled = true;
+      indicator.hidden = true;
+      say("صدایی ثبت نشد. دوباره ضبط را شروع کنید و چند ثانیه صحبت کنید.");
+      return;
+    }
     const file = new File([blob], `recording.${extension}`, { type: mimeType });
     const transfer = new DataTransfer();
     transfer.items.add(file);
@@ -54,18 +63,24 @@
     showPreview(blob);
     startButton.disabled = false;
     stopButton.disabled = true;
+    saveButton.disabled = false;
     indicator.hidden = true;
     say("ضبط تمام شد. برای نگهداری این وویس، دکمه «ذخیره وویس» را بزنید.");
   };
 
   startButton.addEventListener("click", async () => {
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-      say("مرورگر شما ضبط مستقیم را پشتیبانی نمی‌کند؛ لطفاً فایل صوتی را انتخاب کنید.");
+      say("مرورگر شما ضبط مستقیم را پشتیبانی نمی‌کند. صفحه را با مرورگر به‌روز Chrome، Edge یا Firefox باز کنید.");
       return;
     }
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       chunks = [];
+      fileInput.value = "";
+      durationInput.value = "";
+      saveButton.disabled = true;
+      preview.hidden = true;
+      revokePreview();
       const mimeType = preferredMimeType();
       recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       recorder.addEventListener("dataavailable", (event) => {
@@ -76,6 +91,7 @@
         stopTracks();
         startButton.disabled = false;
         stopButton.disabled = true;
+        saveButton.disabled = true;
         indicator.hidden = true;
         say("ضبط کامل نشد. دوباره تلاش کنید یا فایل صوتی را انتخاب کنید.");
       }, { once: true });
@@ -90,20 +106,12 @@
       }, maximumDuration);
     } catch (_error) {
       stopTracks();
-      say("دسترسی میکروفن داده نشد. اجازه مرورگر را بررسی کنید یا فایل صوتی را انتخاب کنید.");
+      say("دسترسی میکروفن داده نشد. اجازه میکروفن مرورگر را فعال و دوباره تلاش کنید.");
     }
   });
 
   stopButton.addEventListener("click", () => {
     if (recorder?.state === "recording") recorder.stop();
-  });
-
-  fileInput.addEventListener("change", () => {
-    const file = fileInput.files?.[0];
-    if (!file) return;
-    durationInput.value = "";
-    showPreview(file);
-    say("فایل انتخاب شد. برای نگهداری آن، دکمه «ذخیره وویس» را بزنید.");
   });
 
   window.addEventListener("pagehide", () => {

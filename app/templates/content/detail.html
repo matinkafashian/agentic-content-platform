@@ -43,13 +43,13 @@
       <button class="button button-secondary" type="button" data-record-stop disabled>پایان ضبط</button>
       <span class="recording-indicator" data-recording-indicator hidden>در حال ضبط…</span>
     </div>
-    <p class="record-message" data-record-message aria-live="polite">می‌توانید همین‌جا ضبط کنید یا یک فایل صوتی انتخاب کنید.</p>
+    <p class="record-message" data-record-message aria-live="polite">برای ساخت وویس، دکمه «شروع ضبط» را بزنید.</p>
     <audio controls data-record-preview hidden></audio>
     <form method="post" action="/admin/content/{{ draft.id }}/voice" enctype="multipart/form-data" class="voice-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="duration_ms" value="" data-record-duration>
-      <div class="field voice-file-field"><label for="voice-file">فایل وویس</label><input id="voice-file" type="file" name="voice" accept="audio/mpeg,audio/mp4,audio/ogg,audio/wav,audio/webm" data-record-file required><small>MP3، M4A، OGG، WAV یا WebM — حداکثر ۲۵ مگابایت و ۱۰ دقیقه</small></div>
-      <button class="button button-primary" type="submit">ذخیره وویس</button>
+      <input type="file" name="voice" hidden id="voice-file" accept="audio/ogg,audio/webm" data-record-file required tabindex="-1">
+      <button class="button button-primary" type="submit" data-record-save disabled>ذخیره وویس ضبط‌شده</button>
     </form>
   </section>
   <section class="panel">
