@@ -86,9 +86,15 @@ def test_voice_recorder_has_accessible_controls_and_private_source(
         "data-record-preview",
         "data-record-file",
         "data-record-duration",
+        "data-record-timer",
+        "data-record-save",
     ):
         assert hook in page.text
+    assert 'id="voice-studio"' in page.text
+    assert 'class="recorder-button recorder-start"' in page.text
+    assert 'class="recorder-button recorder-stop"' in page.text
     assert f'src="/admin/content/{draft_id}/voice"' in page.text
+    assert "وویس ذخیره‌شده و آماده پخش است" in page.text
     assert "/uploads/private" not in page.text
     assert 'src="/static/js/voice-recorder.js"' in page.text
     assert 'type="file" name="voice"' in page.text

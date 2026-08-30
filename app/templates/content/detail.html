@@ -34,17 +34,37 @@
       </div>
     </article>
   </section>
-  <section class="panel voice-recorder" data-voice-recorder>
+  <section class="panel voice-recorder" id="voice-studio" data-voice-recorder>
     <div class="form-card-heading"><span class="step-number">●</span><div><h2>وویس با صدای اصلی کارفرما</h2><p>بدون تبدیل صدا، افکت یا بازتولید هوش مصنوعی</p></div></div>
     <p class="voice-privacy">میکروفن فقط پس از فشردن دکمه ضبط فعال می‌شود. فایل در فضای خصوصی نگهداری شده و همان بایت‌های دریافت‌شده برای انتشار استفاده می‌شوند.</p>
-    {% if voice %}<div class="saved-voice"><strong>وویس ذخیره‌شده</strong><audio controls preload="metadata" src="/admin/content/{{ draft.id }}/voice"></audio><form method="post" action="/admin/content/{{ draft.id }}/voice/delete"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-danger" type="submit">حذف وویس</button></form></div>{% endif %}
-    <div class="record-controls">
-      <button class="button button-primary" type="button" data-record-start>شروع ضبط</button>
-      <button class="button button-secondary" type="button" data-record-stop disabled>پایان ضبط</button>
-      <span class="recording-indicator" data-recording-indicator hidden>در حال ضبط…</span>
+    {% if voice %}
+    <div class="saved-voice {{ 'is-newly-saved' if voice_saved else '' }}" data-saved-voice {% if voice_saved %}role="status"{% endif %}>
+      <div class="saved-voice-heading"><span class="voice-saved-check" aria-hidden="true">✓</span><div><strong>{{ 'وویس با موفقیت ذخیره شد' if voice_saved else 'وویس ذخیره‌شده و آماده پخش است' }}</strong><small>این وویس به نسخه {{ draft.revision }} متصل است و هنگام انتشار همراه همین محتوا ارسال می‌شود.</small></div></div>
+      <audio controls preload="metadata" src="/admin/content/{{ draft.id }}/voice"></audio>
+      <div class="saved-voice-actions">
+        <a class="button button-secondary" href="/admin/content/{{ draft.id }}/voice?download=true">دانلود وویس</a>
+        <form method="post" action="/admin/content/{{ draft.id }}/voice/delete"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-danger" type="submit">حذف وویس</button></form>
+      </div>
+    </div>
+    {% endif %}
+    <div class="recorder-console">
+      <div class="record-controls">
+        <button class="recorder-button recorder-start" type="button" data-record-start aria-label="شروع ضبط وویس">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 0 0 3.5-3.5V5.5a3.5 3.5 0 1 0-7 0V12a3.5 3.5 0 0 0 3.5 3.5Zm-1.5-10a1.5 1.5 0 1 1 3 0V12a1.5 1.5 0 1 1-3 0V5.5ZM5 11h2a5 5 0 0 0 10 0h2a7 7 0 0 1-6 6.92V21h-2v-3.08A7 7 0 0 1 5 11Z"/></svg>
+          <span>شروع ضبط</span>
+        </button>
+        <button class="recorder-button recorder-stop" type="button" data-record-stop aria-label="پایان ضبط وویس" disabled>
+          <span class="stop-square" aria-hidden="true"></span>
+          <span>توقف</span>
+        </button>
+      </div>
+      <div class="recorder-readout">
+        <time datetime="PT0S" data-record-timer>۰۰:۰۰</time>
+        <span class="recording-indicator" data-recording-indicator hidden>در حال ضبط</span>
+      </div>
     </div>
     <p class="record-message" data-record-message aria-live="polite">برای ساخت وویس، دکمه «شروع ضبط» را بزنید.</p>
-    <audio controls data-record-preview hidden></audio>
+    <div class="record-preview" data-record-preview-wrap hidden><strong>پیش‌نمایش قبل از ذخیره</strong><audio controls data-record-preview></audio></div>
     <form method="post" action="/admin/content/{{ draft.id }}/voice" enctype="multipart/form-data" class="voice-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="duration_ms" value="" data-record-duration>

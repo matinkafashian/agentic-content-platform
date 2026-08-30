@@ -128,12 +128,29 @@ def test_voice_upload_is_private_and_byte_identical(
     )
 
     assert uploaded.status_code == 303
+    assert uploaded.headers["location"] == (
+        f"/admin/content/{draft_id}?voice_saved=1#voice-studio"
+    )
     assert private_response.status_code == 200
     assert private_response.content == voice
     assert private_response.headers["content-type"].startswith("audio/webm")
     assert "/uploads/" not in authenticated_client.get(
         f"/admin/content/{draft_id}"
     ).text
+
+    saved_page = authenticated_client.get(
+        f"/admin/content/{draft_id}?voice_saved=1"
+    )
+    assert "وویس با موفقیت ذخیره شد" in saved_page.text
+    assert f'href="/admin/content/{draft_id}/voice?download=true"' in saved_page.text
+
+    download = authenticated_client.get(
+        f"/admin/content/{draft_id}/voice?download=true"
+    )
+    assert download.content == voice
+    assert download.headers["content-disposition"].startswith(
+        f'attachment; filename="voice-{draft_id}.webm"'
+    )
 
 
 def test_private_voice_redirects_anonymous_user(

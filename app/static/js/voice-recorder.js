@@ -5,10 +5,12 @@
   const startButton = root.querySelector("[data-record-start]");
   const stopButton = root.querySelector("[data-record-stop]");
   const preview = root.querySelector("[data-record-preview]");
+  const previewWrap = root.querySelector("[data-record-preview-wrap]");
   const fileInput = root.querySelector("[data-record-file]");
   const durationInput = root.querySelector("[data-record-duration]");
   const saveButton = root.querySelector("[data-record-save]");
   const indicator = root.querySelector("[data-recording-indicator]");
+  const timer = root.querySelector("[data-record-timer]");
   const message = root.querySelector("[data-record-message]");
   const maximumDuration = 600000;
   let recorder;
@@ -16,9 +18,28 @@
   let chunks = [];
   let startedAt = 0;
   let stopTimer;
+  let timerInterval;
   let previewUrl;
 
   const say = (text) => { message.textContent = text; };
+  const formatTime = (milliseconds) => {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const number = (value) => value.toLocaleString("fa-IR", {
+      minimumIntegerDigits: 2,
+      useGrouping: false,
+    });
+    return `${number(minutes)}:${number(seconds)}`;
+  };
+  const updateTimer = (milliseconds) => {
+    timer.textContent = formatTime(milliseconds);
+    timer.setAttribute("datetime", `PT${Math.floor(milliseconds / 1000)}S`);
+  };
+  const stopClock = () => {
+    clearInterval(timerInterval);
+    timerInterval = undefined;
+  };
   const revokePreview = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = undefined;
@@ -38,12 +59,15 @@
     previewUrl = URL.createObjectURL(blob);
     preview.src = previewUrl;
     preview.hidden = false;
+    previewWrap.hidden = false;
   };
 
   const finishRecording = () => {
     clearTimeout(stopTimer);
+    stopClock();
     stopTracks();
     const elapsed = Math.min(Date.now() - startedAt, maximumDuration);
+    updateTimer(elapsed);
     durationInput.value = String(elapsed);
     const mimeType = recorder.mimeType || "audio/webm";
     const extension = mimeType.includes("ogg") ? "ogg" : "webm";
@@ -80,6 +104,7 @@
       durationInput.value = "";
       saveButton.disabled = true;
       preview.hidden = true;
+      previewWrap.hidden = true;
       revokePreview();
       const mimeType = preferredMimeType();
       recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
@@ -89,14 +114,19 @@
       recorder.addEventListener("stop", finishRecording, { once: true });
       recorder.addEventListener("error", () => {
         stopTracks();
+        stopClock();
         startButton.disabled = false;
         stopButton.disabled = true;
         saveButton.disabled = true;
         indicator.hidden = true;
-        say("ضبط کامل نشد. دوباره تلاش کنید یا فایل صوتی را انتخاب کنید.");
+        say("ضبط کامل نشد. دوباره تلاش کنید.");
       }, { once: true });
       recorder.start(1000);
       startedAt = Date.now();
+      updateTimer(0);
+      timerInterval = setInterval(() => {
+        updateTimer(Math.min(Date.now() - startedAt, maximumDuration));
+      }, 250);
       startButton.disabled = true;
       stopButton.disabled = false;
       indicator.hidden = false;
@@ -106,6 +136,10 @@
       }, maximumDuration);
     } catch (_error) {
       stopTracks();
+      stopClock();
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      indicator.hidden = true;
       say("دسترسی میکروفن داده نشد. اجازه میکروفن مرورگر را فعال و دوباره تلاش کنید.");
     }
   });
@@ -117,6 +151,7 @@
   window.addEventListener("pagehide", () => {
     if (recorder?.state === "recording") recorder.stop();
     stopTracks();
+    stopClock();
     revokePreview();
   });
 })();

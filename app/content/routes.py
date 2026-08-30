@@ -77,6 +77,7 @@ def _render_detail(
     draft_id: int,
     *,
     error: str | None = None,
+    voice_saved: bool = False,
     status_code: int = 200,
 ):
     service = _content_service(request, db)
@@ -96,6 +97,7 @@ def _render_detail(
             "voice": voice,
             "status_label": STATUS_LABELS[draft.status],
             "status_labels": STATUS_LABELS,
+            "voice_saved": voice_saved,
             "error": error,
         },
         status_code=status_code,
@@ -148,8 +150,9 @@ def content_detail(
     request: Request,
     _admin: Annotated[str, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
+    voice_saved: bool = False,
 ):
-    return _render_detail(request, db, draft_id)
+    return _render_detail(request, db, draft_id, voice_saved=voice_saved)
 
 
 @router.post("/{draft_id}/edit", response_class=HTMLResponse)
@@ -252,7 +255,10 @@ def upload_voice(
         _voice_service(request, db).attach_or_replace(draft_id, validated)
     except (InvalidVoice, ValueError) as exc:
         return _render_detail(request, db, draft_id, error=str(exc), status_code=422)
-    return RedirectResponse(f"/admin/content/{draft_id}", status_code=303)
+    return RedirectResponse(
+        f"/admin/content/{draft_id}?voice_saved=1#voice-studio",
+        status_code=303,
+    )
 
 
 @router.get("/{draft_id}/voice")
@@ -261,6 +267,7 @@ def private_voice(
     request: Request,
     _admin: Annotated[str, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
+    download: bool = False,
 ):
     voice_repository = VoiceRepository(db)
     asset = voice_repository.for_draft(draft_id)
@@ -272,7 +279,14 @@ def private_voice(
     return FileResponse(
         path,
         media_type=asset.mime_type,
-        headers={"Accept-Ranges": "bytes", "Content-Disposition": "inline"},
+        headers={
+            "Accept-Ranges": "bytes",
+            "Content-Disposition": (
+                f'attachment; filename="voice-{draft_id}{path.suffix}"'
+                if download
+                else "inline"
+            ),
+        },
     )
 
 
