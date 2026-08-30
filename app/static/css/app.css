@@ -222,6 +222,7 @@ input:focus, textarea:focus, select:focus { background: white; border-color: var
 .brand-lists input + input { margin-block-start: var(--space-8); }
 .provider-warning { display: grid; gap: 0.2rem; margin-block-end: var(--space-24); padding: var(--space-16); color: #71520b; background: #fff9e9; border: 1px solid #eedca8; border-radius: var(--radius-md); }
 .provider-warning span { font-size: 0.75rem; }
+.provider-warning.provider-live { color: #175f56; background: #effaf7; border-color: #bfe5dc; }
 .studio-grid { display: grid; grid-template-columns: minmax(18rem, 0.75fr) minmax(25rem, 1.25fr); gap: var(--space-24); margin-block-end: var(--space-24); align-items: start; }
 .source-facts, .caption-preview, .voice-recorder { padding: clamp(1.25rem, 3vw, 1.75rem); }
 .source-description, .source-brief { margin-block-start: var(--space-16); padding: var(--space-16); background: var(--color-surface-soft); border-radius: var(--radius-sm); }

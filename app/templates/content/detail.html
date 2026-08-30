@@ -9,7 +9,11 @@
     <a class="button button-secondary" href="/admin/content/new?product_id={{ draft.product.id }}">پیش‌نویس تازه</a>
   </section>
   {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  {% if draft.provider_name[:7] == 'openai:' %}
+  <div class="provider-warning provider-live" role="note"><strong>تولیدشده با OpenAI</strong><span>خروجی ساختاریافته و کنترل‌شده است، اما پیش از انتشار همچنان نیازمند تأیید مدیر است.</span></div>
+  {% else %}
   <div class="provider-warning" role="note"><strong>حالت آزمایشی — بدون OpenAI</strong><span>این پیش‌نویس با قالب امن ساخته شده و هیچ ادعای تأییدنشده‌ای به آن اضافه نشده است.</span></div>
+  {% endif %}
   <section class="studio-grid">
     <aside class="source-facts panel" aria-labelledby="facts-title">
       <div class="form-card-heading"><span class="step-number">✓</span><div><h2 id="facts-title">اطلاعات قطعی محصول</h2><p>منبع قابل اتکای کپشن</p></div></div>

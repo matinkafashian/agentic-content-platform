@@ -22,7 +22,7 @@
       <div class="form-card-heading"><span class="step-number">۲</span><div><h2>خلاصه کوتاه شما</h2><p>نکته‌ای را بنویسید که باید محور این پست باشد.</p></div></div>
       <div class="field"><label for="user-brief">چه چیزی درباره این محصول گفته شود؟ <span>*</span></label><textarea id="user-brief" name="user_brief" rows="7" required placeholder="مثلاً این مدل برای پروژه‌های نئوکلاسیک معرفی شود و امکان سفارشی‌سازی آن برجسته شود.">{{ values.user_brief | default('') }}</textarea><small>قیمت و مشخصات ثبت‌شده خودکار اضافه می‌شوند؛ ویژگی تأییدنشده، تخفیف یا گارانتی را حدس نمی‌زنیم.</small></div>
     </section>
-    <div class="form-actions"><a class="button button-secondary" href="/admin/products">بازگشت</a><button class="button button-primary" type="submit">ساخت پیش‌نویس آزمایشی</button></div>
+    <div class="form-actions"><a class="button button-secondary" href="/admin/products">بازگشت</a><button class="button button-primary" type="submit">{{ 'ساخت پیش‌نویس با هوش مصنوعی' if provider_name[:7] == 'openai:' else 'ساخت پیش‌نویس آزمایشی' }}</button></div>
   </form>
   {% else %}
   <section class="empty-state"><span class="empty-icon" aria-hidden="true">＋</span><h2>هنوز محصول فعالی ندارید</h2><p>برای شروع تولید محتوا، ابتدا یک محصول فعال همراه با قیمت و توضیحات ثبت کنید.</p><a class="button button-primary" href="/admin/products/new">افزودن محصول</a></section>

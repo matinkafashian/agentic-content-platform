@@ -8,6 +8,7 @@ from app.admin.dependencies import require_admin
 from app.brand.repository import BrandRepository
 from app.brand.service import BrandService
 from app.catalog.repository import ProductRepository
+from app.content.openai_provider import ContentProviderError
 from app.content.repository import ContentRepository
 from app.content.service import (
     ContentInputError,
@@ -63,6 +64,7 @@ def _render_new(
             "csrf_token": ensure_csrf_token(request),
             "current_page": "content",
             "products": products,
+            "provider_name": request.app.state.content_provider.name,
             "selected_product_id": selected_product_id,
             "values": values or {"requested_angle": "product_intro"},
             "error": error,
@@ -141,6 +143,15 @@ def generate_content(
             error=str(exc),
             status_code=422,
         )
+    except ContentProviderError as exc:
+        return _render_new(
+            request,
+            db,
+            selected_product_id=product_id,
+            values={"user_brief": user_brief, "requested_angle": requested_angle},
+            error=str(exc),
+            status_code=503,
+        )
     return RedirectResponse(f"/admin/content/{draft.id}", status_code=303)
 
 
@@ -183,6 +194,8 @@ def regenerate_content(
     validate_csrf(request, csrf_token)
     try:
         draft = _content_service(request, db).regenerate(draft_id)
+    except ContentProviderError as exc:
+        return _render_detail(request, db, draft_id, error=str(exc), status_code=503)
     except ContentNotFound as exc:
         raise HTTPException(status_code=404, detail="Content draft not found") from exc
     return RedirectResponse(f"/admin/content/{draft.id}", status_code=303)

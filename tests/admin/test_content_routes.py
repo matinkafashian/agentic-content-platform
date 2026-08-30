@@ -1,5 +1,16 @@
 import re
 
+from app.content.openai_provider import ContentProviderUnavailable
+
+
+class UnavailableContentProvider:
+    name = "openai:gpt-test-model"
+
+    def generate(self, request):
+        raise ContentProviderUnavailable(
+            "سرویس OpenAI موقتاً در دسترس نیست؛ دوباره تلاش کنید."
+        )
+
 
 def generate_content(client, csrf_token: str, product_id: int):
     return client.post(
@@ -108,6 +119,18 @@ def test_content_generation_rejects_missing_csrf(authenticated_client, product):
     )
 
     assert response.status_code == 403
+
+
+def test_openai_failure_returns_safe_feedback_without_creating_draft(
+    authenticated_client, csrf_token, product
+):
+    authenticated_client.app.state.content_provider = UnavailableContentProvider()
+
+    response = generate_content(authenticated_client, csrf_token, product.id)
+
+    assert response.status_code == 503
+    assert "OpenAI موقتاً در دسترس نیست" in response.text
+    assert "sk-" not in response.text
 
 
 def test_voice_upload_is_private_and_byte_identical(

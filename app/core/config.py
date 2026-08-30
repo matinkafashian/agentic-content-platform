@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     admin_username: str = "admin"
     admin_password_hash: str
     content_provider: str = "template"
+    openai_api_key: SecretStr | None = None
+    openai_text_model: str = "gpt-5.4-nano"
+    openai_timeout_seconds: float = Field(default=45.0, gt=0, le=180)
     max_voice_bytes: int = Field(default=25 * 1024 * 1024, gt=0)
     debug: bool = False
 

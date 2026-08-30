@@ -1,5 +1,22 @@
 import re
 
+from app.content.schemas import GeneratedContent
+
+
+class SuccessfulOpenAIProvider:
+    name = "openai:gpt-test-model"
+
+    def generate(self, request):
+        return GeneratedContent(
+            headline="✨ معرفی حرفه‌ای محصول",
+            body="این متن با تکیه بر اطلاعات ثبت‌شده محصول آماده شده است.",
+            benefits=["✅ متریال ثبت‌شده: MDF"],
+            cta=request.brand.default_cta,
+            hashtags=["درب ممبران", "نئوکلاسیک"],
+            used_emojis=["✨", "✅"],
+            content_angle=request.requested_angle,
+        )
+
 
 def generate_content(client, csrf_token: str, product_id: int) -> int:
     response = client.post(
@@ -48,6 +65,22 @@ def test_content_form_has_persian_guidance_and_all_angles(
     assert "پرسش رایج" in page.text
     assert "اعتمادسازی" in page.text
     assert "راهنمای سفارش" in page.text
+
+
+def test_openai_mode_is_clear_in_form_and_generated_preview(
+    authenticated_client, csrf_token, product
+):
+    authenticated_client.app.state.content_provider = SuccessfulOpenAIProvider()
+
+    form = authenticated_client.get(f"/admin/content/new?product_id={product.id}")
+    draft_id = generate_content(authenticated_client, csrf_token, product.id)
+    preview = authenticated_client.get(f"/admin/content/{draft_id}")
+
+    assert "ساخت پیش‌نویس با هوش مصنوعی" in form.text
+    assert "تولیدشده با OpenAI" in preview.text
+    assert "نیازمند تأیید مدیر" in preview.text
+    assert "حالت آزمایشی — بدون OpenAI" not in preview.text
+    assert 'class="provider-warning provider-live"' in preview.text
 
 
 def test_content_preview_separates_source_facts_from_editable_caption(
