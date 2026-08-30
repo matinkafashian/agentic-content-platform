@@ -112,6 +112,34 @@
       <button class="button button-primary" type="submit" data-record-save disabled>ذخیره وویس ضبط‌شده</button>
     </form>
   </section>
+  <section class="panel bundle-studio" id="publishing-bundle">
+    <div class="form-card-heading"><span class="step-number">⌁</span><div><h2>بسته نهایی انتشار</h2><p>Snapshot ثابت از تصویر، کپشن و وویس اختیاری برای زمان‌بندی</p></div></div>
+    <div class="bundle-mode-line"><span>حالت فعلی انتشار</span><strong>{{ publishing_mode_label }}</strong><a href="/admin/publishing">تغییر حالت</a></div>
+    {% if bundle_saved %}<div class="alert alert-success" role="status">بسته نهایی با موفقیت ساخته شد و تغییرات بعدی روی این Snapshot اثر نمی‌گذارد.</div>{% endif %}
+    {% if bundle %}
+      <div class="bundle-ready-card">
+        <div class="bundle-ready-heading"><span aria-hidden="true">✓</span><div><strong>بسته نهایی آماده است</strong><small>شناسه بسته {{ bundle.id | fa_digits }} · تصویر و متن ثابت شده‌اند{% if bundle.voice_relative_path %} · وویس نیز پیوست است{% endif %}</small></div></div>
+        <div class="bundle-preview-grid">
+          <img src="/admin/publishing/bundles/{{ bundle.id }}/image" alt="تصویر نهایی بسته {{ draft.product.name }}">
+          <div><strong>کپشن نهایی</strong><p>{{ bundle.caption_snapshot }}</p></div>
+        </div>
+        {% if bundle.voice_relative_path %}<audio controls preload="metadata" src="/admin/publishing/bundles/{{ bundle.id }}/voice"></audio>{% endif %}
+      </div>
+      <form method="post" action="/admin/publishing/bundles/{{ bundle.id }}/schedule" class="schedule-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="field"><label for="destination">مقصد آزمایشی</label><input id="destination" name="destination" value="کانال آزمایشی" minlength="2" maxlength="200" required><small>اتصال واقعی تلگرام در مرحله بعد جایگزین این مقصد آزمایشی می‌شود.</small></div>
+        <div class="field"><label for="scheduled-for">زمان انتشار</label><input id="scheduled-for" type="datetime-local" name="scheduled_for"><small>اگر خالی بماند، بسته در اولین بررسی صف پردازش می‌شود.</small></div>
+        <button class="button button-primary" type="submit">ثبت در صف انتشار</button>
+      </form>
+    {% else %}
+      <div class="bundle-checklist">
+        <div class="{{ 'is-done' if draft.status == 'approved' or publishing_control.mode == 'automatic' else '' }}"><span>{{ '✓' if draft.status == 'approved' or publishing_control.mode == 'automatic' else '۱' }}</span><p><strong>وضعیت محتوا</strong><small>{{ 'آماده بسته‌بندی' if draft.status == 'approved' or publishing_control.mode == 'automatic' else 'در حالت دستی ابتدا نسخه را تأیید کنید' }}</small></p></div>
+        <div class="{{ 'is-done' if edited_image or draft.product.primary_image_path else '' }}"><span>{{ '✓' if edited_image or draft.product.primary_image_path else '۲' }}</span><p><strong>تصویر</strong><small>{{ 'نسخه استودیویی انتخاب می‌شود' if edited_image else ('تصویر اصلی استفاده می‌شود' if draft.product.primary_image_path else 'تصویر محصول موجود نیست') }}</small></p></div>
+        <div class="is-done"><span>✓</span><p><strong>وویس</strong><small>{{ 'وویس ضبط‌شده پیوست می‌شود' if voice else 'اختیاری است و بسته بدون وویس ساخته می‌شود' }}</small></p></div>
+      </div>
+      <form method="post" action="/admin/content/{{ draft.id }}/bundle" class="bundle-create-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-primary" type="submit">ساخت بسته نهایی</button></form>
+    {% endif %}
+  </section>
   <section class="panel">
     <div class="form-card-heading"><span class="step-number">↺</span><div><h2>تاریخچه نسخه‌ها</h2><p>هر بازتولید یک نسخه مستقل و قابل ردیابی است.</p></div></div>
     <ol class="revision-list">{% for item in history %}<li class="{{ 'is-current' if item.id == draft.id else '' }}"><a href="/admin/content/{{ item.id }}"><span>نسخه {{ item.revision }}</span><strong>{{ status_labels[item.status] }}</strong></a></li>{% endfor %}</ol>

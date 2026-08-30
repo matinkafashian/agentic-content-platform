@@ -1,3 +1,4 @@
+import asyncio
 import mimetypes
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -17,6 +18,9 @@ from app.core.config import Settings
 from app.core.database import build_engine, build_session_factory
 from app.core.logging import configure_logging
 from app.media.openai_image_editor import OpenAIImageEditor
+from app.publishing.adapters import SandboxAdapter
+from app.publishing.routes import router as publishing_router
+from app.publishing.worker import PublishingWorker, stop_worker
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -51,11 +55,23 @@ def create_app(settings: Settings) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-        yield
-        for resource in (provider, image_editor):
-            close = getattr(resource, "close", None)
-            if close is not None:
-                close()
+        worker_task = None
+        if settings.publishing_worker_enabled:
+            worker = PublishingWorker(
+                _app.state.session_factory,
+                settings.upload_dir,
+                _app.state.platform_adapters,
+                poll_seconds=settings.publishing_poll_seconds,
+            )
+            worker_task = asyncio.create_task(worker.run_forever())
+        try:
+            yield
+        finally:
+            await stop_worker(worker_task)
+            for resource in (provider, image_editor):
+                close = getattr(resource, "close", None)
+                if close is not None:
+                    close()
 
     app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
     app.state.settings = settings
@@ -63,12 +79,14 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.session_factory = build_session_factory(app.state.engine)
     app.state.content_provider = provider
     app.state.image_editor = image_editor
+    app.state.platform_adapters = {"sandbox": SandboxAdapter()}
     product_upload_root = settings.upload_dir / "products"
     product_upload_root.mkdir(parents=True, exist_ok=True)
     (settings.upload_dir / "private" / "voices").mkdir(parents=True, exist_ok=True)
     (settings.upload_dir / "private" / "edited_images").mkdir(
         parents=True, exist_ok=True
     )
+    (settings.upload_dir / "private" / "bundles").mkdir(parents=True, exist_ok=True)
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
@@ -79,6 +97,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(catalog_router)
     app.include_router(brand_router)
     app.include_router(content_router)
+    app.include_router(publishing_router)
     app.mount(
         "/uploads/products",
         StaticFiles(directory=product_upload_root),

@@ -28,6 +28,9 @@ from app.media.image_edit_service import (
 from app.media.openai_image_editor import ImageEditorError
 from app.media.voice import InvalidVoice, validate_voice
 from app.media.voice_service import VoiceRepository, VoiceService
+from app.publishing.repository import PublishingRepository
+from app.publishing.routes import MODE_LABELS
+from app.publishing.service import BundleInputError, PublishingService
 
 router = APIRouter(prefix="/admin/content", tags=["content"])
 
@@ -94,6 +97,7 @@ def _render_detail(
     error: str | None = None,
     voice_saved: bool = False,
     image_saved: bool = False,
+    bundle_saved: bool = False,
     status_code: int = 200,
 ):
     service = _content_service(request, db)
@@ -103,6 +107,10 @@ def _render_detail(
         raise HTTPException(status_code=404, detail="Content draft not found") from exc
     voice = VoiceRepository(db).for_draft(draft_id)
     edited_image = EditedImageRepository(db).for_draft(draft_id)
+    publishing_repository = PublishingRepository(db)
+    publishing_control = publishing_repository.control()
+    bundle = publishing_repository.bundle_for_draft(draft_id)
+    publishing_repository.commit()
     return templates.TemplateResponse(
         request=request,
         name="content/detail.html",
@@ -117,6 +125,10 @@ def _render_detail(
             "status_labels": STATUS_LABELS,
             "voice_saved": voice_saved,
             "image_saved": image_saved,
+            "bundle_saved": bundle_saved,
+            "bundle": bundle,
+            "publishing_control": publishing_control,
+            "publishing_mode_label": MODE_LABELS[publishing_control.mode],
             "image_editor_available": request.app.state.image_editor is not None,
             "error": error,
         },
@@ -181,6 +193,7 @@ def content_detail(
     db: Annotated[Session, Depends(get_db)],
     voice_saved: bool = False,
     image_saved: bool = False,
+    bundle_saved: bool = False,
 ):
     return _render_detail(
         request,
@@ -188,6 +201,31 @@ def content_detail(
         draft_id,
         voice_saved=voice_saved,
         image_saved=image_saved,
+        bundle_saved=bundle_saved,
+    )
+
+
+@router.post("/{draft_id}/bundle")
+def create_post_bundle(
+    draft_id: int,
+    request: Request,
+    _admin: Annotated[str, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    csrf_token: Annotated[str, Form()] = "",
+):
+    validate_csrf(request, csrf_token)
+    service = PublishingService(
+        PublishingRepository(db),
+        request.app.state.settings.upload_dir,
+        request.app.state.platform_adapters,
+    )
+    try:
+        service.create_bundle(draft_id)
+    except BundleInputError as exc:
+        return _render_detail(request, db, draft_id, error=str(exc), status_code=422)
+    return RedirectResponse(
+        f"/admin/content/{draft_id}?bundle_saved=1#publishing-bundle",
+        status_code=303,
     )
 
 

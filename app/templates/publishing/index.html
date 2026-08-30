@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}انتشار و زمان‌بندی{% endblock %}
+{% block header_title %}انتشار و زمان‌بندی{% endblock %}
+{% block content %}
+<main data-page="publishing">
+  <section class="page-heading">
+    <div><span class="section-kicker">مرکز کنترل انتشار</span><h1>صف انتشار</h1><p>بسته‌های آماده را زمان‌بندی کنید و نتیجه هر تلاش را مستقل و قابل‌ردیابی ببینید.</p></div>
+    <form method="post" action="/admin/publishing/run-due"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-secondary" type="submit">بررسی همین حالا</button></form>
+  </section>
+
+  {% if mode_saved %}<div class="alert alert-success" role="status">حالت انتشار ذخیره شد.</div>{% endif %}
+  {% if scheduled %}<div class="alert alert-success" role="status">بسته با موفقیت زمان‌بندی شد.</div>{% endif %}
+  {% if paused %}<div class="alert alert-warning" role="status">انتشار متوقف است؛ هیچ موردی تا فعال‌سازی دوباره ارسال نمی‌شود.</div>{% endif %}
+  {% if processed %}<div class="alert alert-success" role="status">{{ processed | fa_digits }} مورد پردازش شد.</div>{% endif %}
+
+  <section class="panel publishing-control">
+    <div class="panel-heading"><div><span class="section-kicker">رفتار سامانه</span><h2>حالت انتشار</h2></div><span class="mode-badge mode-{{ control.mode }}">{{ mode_labels[control.mode] }}</span></div>
+    <form method="post" action="/admin/publishing/mode" class="mode-options">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label><input type="radio" name="mode" value="manual_approval" {{ 'checked' if control.mode == 'manual_approval' else '' }}><span><strong>تأیید دستی</strong><small>فقط نسخه‌ای که مدیر تأیید کرده بسته‌بندی می‌شود.</small></span></label>
+      <label><input type="radio" name="mode" value="automatic" {{ 'checked' if control.mode == 'automatic' else '' }}><span><strong>خودکار</strong><small>نسخه سالم هنگام بسته‌بندی به‌طور خودکار تأیید می‌شود.</small></span></label>
+      <label><input type="radio" name="mode" value="paused" {{ 'checked' if control.mode == 'paused' else '' }}><span><strong>توقف کامل</strong><small>صف حفظ می‌شود ولی هیچ ارسال تازه‌ای شروع نمی‌شود.</small></span></label>
+      <button class="button button-primary" type="submit">ذخیره حالت</button>
+    </form>
+  </section>
+
+  <section class="panel publication-queue">
+    <div class="panel-heading"><div><span class="section-kicker">آخرین فعالیت‌ها</span><h2>نتیجه ارسال‌ها</h2></div><small>منطقه زمانی پنل: {{ timezone }}</small></div>
+    <div class="sandbox-notice"><strong>شبیه‌ساز داخلی فعال است</strong><span>در این مرحله هیچ پیامی به کانال واقعی فرستاده نمی‌شود؛ همین قرارداد در مرحله بعد به تلگرام متصل خواهد شد.</span></div>
+    {% if publications %}
+      <div class="publication-list">
+      {% for item in publications %}
+        <article class="publication-row status-{{ item.status }}">
+          <div><strong>{{ item.bundle.content_draft.product.name }}</strong><small>{{ item.destination }} · {{ item.platform }}</small></div>
+          <div class="publication-meta"><span class="status-pill">{{ status_labels[item.status] }}</span><small>تلاش {{ item.attempt_count | fa_digits }} از {{ item.max_attempts | fa_digits }}</small></div>
+          <time>{{ publication_times[item.id] | fa_digits }}</time>
+          {% if item.safe_error_message %}<p class="publication-error">{{ item.safe_error_message }}</p>{% endif %}
+        </article>
+      {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state compact-empty"><strong>صف هنوز خالی است</strong><p>از صفحه پیش‌نمایش محتوا، یک بسته نهایی بسازید و زمان ارسال را تعیین کنید.</p></div>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

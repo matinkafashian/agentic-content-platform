@@ -43,6 +43,8 @@ def test_admin_navigation_exposes_content_studio_and_brand_settings(
     assert "استودیوی محتوا" in page.text
     assert 'href="/admin/brand"' in page.text
     assert "تنظیمات برند" in page.text
+    assert 'href="/admin/publishing"' in page.text
+    assert "انتشار و زمان‌بندی" in page.text
 
 
 def test_product_detail_links_directly_to_prefilled_content_form(

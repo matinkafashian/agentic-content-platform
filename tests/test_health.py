@@ -15,6 +15,7 @@ def make_settings(
         secret_key=secret_key,
         admin_username="admin",
         admin_password_hash="$argon2id$v=19$m=65536,t=3,p=4$invalid$invalid",
+        publishing_worker_enabled=False,
         debug=True,
         **overrides,
     )
