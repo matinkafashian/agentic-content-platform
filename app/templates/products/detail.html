@@ -6,7 +6,10 @@
   <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="/admin/products">محصولات</a><span aria-hidden="true">/</span><span aria-current="page">{{ product.name }}</span></nav>
   <section class="detail-heading">
     <div><span class="badge {{ 'badge-success' if product.active else 'badge-muted' }}">{{ 'فعال' if product.active else 'غیرفعال' }}</span><h1>{{ product.name }}</h1><p>{{ product.description or "برای این محصول هنوز توضیحی ثبت نشده است." }}</p></div>
-    <a class="button button-primary" href="/admin/products/{{ product.id }}/edit">ویرایش محصول</a>
+    <div class="detail-actions">
+      <a class="button button-primary" href="/admin/content/new?product_id={{ product.id }}">ساخت محتوا</a>
+      <a class="button button-secondary" href="/admin/products/{{ product.id }}/edit">ویرایش محصول</a>
+    </div>
   </section>
   <section class="detail-grid">
     <article class="detail-media panel">

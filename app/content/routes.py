@@ -95,6 +95,7 @@ def _render_detail(
             "history": service.history(draft_id),
             "voice": voice,
             "status_label": STATUS_LABELS[draft.status],
+            "status_labels": STATUS_LABELS,
             "error": error,
         },
         status_code=status_code,
@@ -286,4 +287,3 @@ def delete_voice(
     validate_csrf(request, csrf_token)
     _voice_service(request, db).delete(draft_id)
     return RedirectResponse(f"/admin/content/{draft_id}", status_code=303)
-

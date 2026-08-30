@@ -3,28 +3,59 @@
 {% block header_title %}پیش‌نمایش محتوا{% endblock %}
 {% block content %}
 <main>
-  <h1>{{ draft.product.name }}</h1>
-  <strong>{{ status_label }}</strong>
-  <div>حالت آزمایشی — بدون OpenAI</div>
-  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
-  <form method="post" action="/admin/content/{{ draft.id }}/edit">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <textarea name="final_caption">{{ draft.final_caption }}</textarea>
-    <button type="submit">ذخیره کپشن</button>
-  </form>
-  <form method="post" action="/admin/content/{{ draft.id }}/regenerate"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">بازتولید</button></form>
-  <form method="post" action="/admin/content/{{ draft.id }}/approve"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">تأیید</button></form>
-  <form method="post" action="/admin/content/{{ draft.id }}/reject"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">رد</button></form>
-  <h2>Voice اصلی</h2>
-  {% if voice %}<audio controls src="/admin/content/{{ draft.id }}/voice"></audio>{% endif %}
-  <form method="post" action="/admin/content/{{ draft.id }}/voice" enctype="multipart/form-data">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="hidden" name="duration_ms" value="">
-    <input type="file" name="voice" accept="audio/*">
-    <button type="submit">بارگذاری Voice</button>
-  </form>
-  <h2>تاریخچه نسخه‌ها</h2>
-  <ol>{% for item in history %}<li>نسخه {{ item.revision }} — {{ item.status }}</li>{% endfor %}</ol>
+  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="/admin/content/new">استودیوی محتوا</a><span aria-hidden="true">/</span><span aria-current="page">نسخه {{ draft.revision }}</span></nav>
+  <section class="detail-heading">
+    <div><span class="badge {{ 'badge-success' if draft.status == 'approved' else 'badge-muted' }}">{{ status_label }}</span><h1>{{ draft.product.name }}</h1><p>نسخه {{ draft.revision }} از این مجموعه — متن نهایی را بررسی و در صورت نیاز ویرایش کنید.</p></div>
+    <a class="button button-secondary" href="/admin/content/new?product_id={{ draft.product.id }}">پیش‌نویس تازه</a>
+  </section>
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  <div class="provider-warning" role="note"><strong>حالت آزمایشی — بدون OpenAI</strong><span>این پیش‌نویس با قالب امن ساخته شده و هیچ ادعای تأییدنشده‌ای به آن اضافه نشده است.</span></div>
+  <section class="studio-grid">
+    <aside class="source-facts panel" aria-labelledby="facts-title">
+      <div class="form-card-heading"><span class="step-number">✓</span><div><h2 id="facts-title">اطلاعات قطعی محصول</h2><p>منبع قابل اتکای کپشن</p></div></div>
+      <div class="fact-row"><span>قیمت</span><strong>{{ draft.product.price | price_fa }} تومان</strong></div>
+      <div class="fact-row"><span>موجودی</span><strong>{{ draft.product.availability }}</strong></div>
+      {% if draft.product.shipping_info %}<div class="fact-row"><span>ارسال</span><strong>{{ draft.product.shipping_info }}</strong></div>{% endif %}
+      {% for key, value in draft.product.attributes.items() %}<div class="fact-row"><span>{{ key }}</span><strong>{{ value }}</strong></div>{% endfor %}
+      {% if draft.product.description %}<div class="field source-description"><span>توضیحات ثبت‌شده</span><p>{{ draft.product.description }}</p></div>{% endif %}
+      <div class="field source-brief"><span>خلاصه شما</span><p>{{ draft.user_brief }}</p></div>
+    </aside>
+    <article class="panel caption-preview">
+      <div class="form-card-heading"><span class="step-number">✦</span><div><h2>کپشن آماده انتشار</h2><p>قبل از تأیید، متن کاملاً قابل ویرایش است.</p></div></div>
+      <form method="post" action="/admin/content/{{ draft.id }}/edit" class="stack-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="field"><label for="final-caption">متن نهایی</label><textarea id="final-caption" name="final_caption" rows="18" dir="rtl">{{ draft.final_caption }}</textarea><small>تغییر شما فقط روی این نسخه ذخیره می‌شود و داده خام تولیدکننده محفوظ می‌ماند.</small></div>
+        <button class="button button-secondary" type="submit">ذخیره تغییرات کپشن</button>
+      </form>
+      <div class="content-actions">
+        <form method="post" action="/admin/content/{{ draft.id }}/regenerate"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-secondary" type="submit">ساخت نسخه جدید</button></form>
+        <form method="post" action="/admin/content/{{ draft.id }}/approve"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-primary" type="submit">تأیید برای انتشار</button></form>
+        <form method="post" action="/admin/content/{{ draft.id }}/reject"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-danger" type="submit">رد این نسخه</button></form>
+      </div>
+    </article>
+  </section>
+  <section class="panel voice-recorder" data-voice-recorder>
+    <div class="form-card-heading"><span class="step-number">●</span><div><h2>وویس با صدای اصلی کارفرما</h2><p>بدون تبدیل صدا، افکت یا بازتولید هوش مصنوعی</p></div></div>
+    <p class="voice-privacy">میکروفن فقط پس از فشردن دکمه ضبط فعال می‌شود. فایل در فضای خصوصی نگهداری شده و همان بایت‌های دریافت‌شده برای انتشار استفاده می‌شوند.</p>
+    {% if voice %}<div class="saved-voice"><strong>وویس ذخیره‌شده</strong><audio controls preload="metadata" src="/admin/content/{{ draft.id }}/voice"></audio><form method="post" action="/admin/content/{{ draft.id }}/voice/delete"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-danger" type="submit">حذف وویس</button></form></div>{% endif %}
+    <div class="record-controls">
+      <button class="button button-primary" type="button" data-record-start>شروع ضبط</button>
+      <button class="button button-secondary" type="button" data-record-stop disabled>پایان ضبط</button>
+      <span class="recording-indicator" data-recording-indicator hidden>در حال ضبط…</span>
+    </div>
+    <p class="record-message" data-record-message aria-live="polite">می‌توانید همین‌جا ضبط کنید یا یک فایل صوتی انتخاب کنید.</p>
+    <audio controls data-record-preview hidden></audio>
+    <form method="post" action="/admin/content/{{ draft.id }}/voice" enctype="multipart/form-data" class="voice-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="duration_ms" value="" data-record-duration>
+      <div class="field voice-file-field"><label for="voice-file">فایل وویس</label><input id="voice-file" type="file" name="voice" accept="audio/mpeg,audio/mp4,audio/ogg,audio/wav,audio/webm" data-record-file required><small>MP3، M4A، OGG، WAV یا WebM — حداکثر ۲۵ مگابایت و ۱۰ دقیقه</small></div>
+      <button class="button button-primary" type="submit">ذخیره وویس</button>
+    </form>
+  </section>
+  <section class="panel">
+    <div class="form-card-heading"><span class="step-number">↺</span><div><h2>تاریخچه نسخه‌ها</h2><p>هر بازتولید یک نسخه مستقل و قابل ردیابی است.</p></div></div>
+    <ol class="revision-list">{% for item in history %}<li class="{{ 'is-current' if item.id == draft.id else '' }}"><a href="/admin/content/{{ item.id }}"><span>نسخه {{ item.revision }}</span><strong>{{ status_labels[item.status] }}</strong></a></li>{% endfor %}</ol>
+  </section>
 </main>
 {% endblock %}
-
+{% block page_scripts %}<script src="/static/js/voice-recorder.js" defer></script>{% endblock %}

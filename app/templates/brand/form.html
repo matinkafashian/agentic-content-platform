@@ -3,21 +3,32 @@
 {% block header_title %}تنظیمات برند{% endblock %}
 {% block content %}
 <main>
-  <h1>تنظیمات برند</h1>
-  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
-  <form method="post" action="/admin/brand">
+  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="/admin">نمای کلی</a><span aria-hidden="true">/</span><span aria-current="page">تنظیمات برند</span></nav>
+  <section class="page-heading">
+    <div><span class="eyebrow">هویت یکپارچه در همه کانال‌ها</span><h1>صدای برند را یک‌بار تعریف کنید</h1><p>این اطلاعات راهنمای تولید متن است. فقط ادعاهایی که اینجا تأیید می‌کنید اجازه ورود به کپشن را دارند.</p></div>
+  </section>
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/brand" class="brand-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label>نام برند<input name="business_name" value="{{ values.business_name }}"></label>
-    <label>شعار<input name="tagline" value="{{ values.tagline }}"></label>
-    <label>مخاطب<input name="audience" value="{{ values.audience }}"></label>
-    <label>لحن<textarea name="tone_guidelines">{{ values.tone_guidelines }}</textarea></label>
-    <label>آیدی پشتیبانی<input name="support_handle" value="{{ values.support_handle }}"></label>
-    <label>دعوت به اقدام<input name="default_cta" value="{{ values.default_cta }}"></label>
-    {% for claim in values.approved_claims %}<input name="approved_claim" value="{{ claim }}">{% endfor %}
-    {% if not values.approved_claims %}<input name="approved_claim" value="" placeholder="ادعای تأییدشده">{% endif %}
-    {% for tag in values.default_hashtags %}<input name="default_hashtag" value="{{ tag }}">{% endfor %}
-    <button type="submit">ذخیره تنظیمات برند</button>
+    <section class="panel form-card">
+      <div class="form-card-heading"><span class="step-number">۱</span><div><h2>معرفی کسب‌وکار</h2><p>نام، مخاطب و نحوه ارتباط با مشتری</p></div></div>
+      <div class="field-grid">
+        <div class="field"><label for="business-name">نام برند <span>*</span></label><input id="business-name" name="business_name" value="{{ values.business_name }}" required></div>
+        <div class="field"><label for="tagline">شعار کوتاه</label><input id="tagline" name="tagline" value="{{ values.tagline }}"></div>
+        <div class="field field-wide"><label for="audience">مخاطب اصلی</label><input id="audience" name="audience" value="{{ values.audience }}" placeholder="مثلاً سازندگان و طراحان دکوراسیون داخلی"></div>
+        <div class="field"><label for="support-handle">آیدی پشتیبانی</label><input id="support-handle" name="support_handle" value="{{ values.support_handle }}" dir="ltr"></div>
+        <div class="field"><label for="default-cta">دعوت به اقدام</label><input id="default-cta" name="default_cta" value="{{ values.default_cta }}" placeholder="برای مشاوره پیام بدهید"></div>
+        <div class="field field-wide"><label for="tone">لحن برند</label><textarea id="tone" name="tone_guidelines" rows="4">{{ values.tone_guidelines }}</textarea><small>مثلاً حرفه‌ای، محترمانه، روشن و بدون اغراق.</small></div>
+      </div>
+    </section>
+    <section class="panel form-card brand-lists">
+      <div class="form-card-heading"><span class="step-number">۲</span><div><h2>مرزهای محتوایی</h2><p>ادعاهای مجاز و هشتگ‌های همیشگی</p></div></div>
+      <div class="field-grid">
+        <div class="field"><label>ادعاهای تأییدشده</label>{% for claim in values.approved_claims %}<input name="approved_claim" value="{{ claim }}">{% endfor %}{% if not values.approved_claims %}<input name="approved_claim" value="" placeholder="مثلاً امکان سفارشی‌سازی ابعاد">{% endif %}<small>گارانتی، تخفیف یا زمان ارسال را فقط در صورت قطعیت وارد کنید.</small></div>
+        <div class="field"><label>هشتگ‌های پیش‌فرض</label>{% for tag in values.default_hashtags %}<input name="default_hashtag" value="{{ tag }}">{% endfor %}{% if not values.default_hashtags %}<input name="default_hashtag" value="" placeholder="مثلاً هایکا">{% endif %}<small>بدون علامت # نیز قابل ثبت است.</small></div>
+      </div>
+    </section>
+    <div class="form-actions"><a class="button button-secondary" href="/admin">انصراف</a><button class="button button-primary" type="submit">ذخیره تنظیمات برند</button></div>
   </form>
 </main>
 {% endblock %}
-

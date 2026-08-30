@@ -3,15 +3,29 @@
 {% block header_title %}استودیوی محتوا{% endblock %}
 {% block content %}
 <main>
-  <h1>ساخت محتوای محصول</h1>
-  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
-  <form method="post" action="/admin/content">
+  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="/admin">نمای کلی</a><span aria-hidden="true">/</span><span aria-current="page">ساخت محتوا</span></nav>
+  <section class="page-heading">
+    <div><span class="eyebrow">پیش‌نویس قابل‌ویرایش</span><h1>از چند خط، یک کپشن کامل بسازید</h1><p>محصول و زاویه روایت را انتخاب کنید؛ سامانه اطلاعات قطعی کاتالوگ، آیکن‌های مرتبط و هشتگ‌ها را کنار خلاصه شما می‌چیند.</p></div>
+  </section>
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  {% if products %}
+  <form method="post" action="/admin/content" class="studio-create-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label>محصول<select name="product_id">{% for product in products %}<option value="{{ product.id }}" {{ 'selected' if product.id == selected_product_id else '' }}>{{ product.name }}</option>{% endfor %}</select></label>
-    <label>زاویه محتوا<select name="requested_angle"><option value="product_intro">معرفی محصول</option><option value="educational">آموزشی</option><option value="faq">پرسش رایج</option><option value="problem_solution">مسئله و راه‌حل</option><option value="trust">اعتمادسازی</option><option value="order_guide">راهنمای سفارش</option></select></label>
-    <label>خلاصه مدیر<textarea name="user_brief">{{ values.user_brief | default('') }}</textarea></label>
-    <button type="submit">ساخت پیش‌نویس آزمایشی</button>
+    <section class="panel form-card">
+      <div class="form-card-heading"><span class="step-number">۱</span><div><h2>انتخاب محصول و هدف</h2><p>اطلاعات اصلی مستقیماً از کاتالوگ خوانده می‌شود.</p></div></div>
+      <div class="field-grid">
+        <div class="field"><label for="product-id">محصول <span>*</span></label><select id="product-id" name="product_id" required>{% for product in products %}<option value="{{ product.id }}" {{ 'selected' if product.id == selected_product_id else '' }}>{{ product.name }} — {{ product.price | price_fa }} تومان</option>{% endfor %}</select></div>
+        <div class="field"><label for="requested-angle">زاویه محتوا</label><select id="requested-angle" name="requested_angle"><option value="product_intro" {{ 'selected' if values.requested_angle == 'product_intro' else '' }}>معرفی محصول</option><option value="educational" {{ 'selected' if values.requested_angle == 'educational' else '' }}>آموزشی</option><option value="faq" {{ 'selected' if values.requested_angle == 'faq' else '' }}>پرسش رایج</option><option value="problem_solution" {{ 'selected' if values.requested_angle == 'problem_solution' else '' }}>مسئله و راه‌حل</option><option value="trust" {{ 'selected' if values.requested_angle == 'trust' else '' }}>اعتمادسازی</option><option value="order_guide" {{ 'selected' if values.requested_angle == 'order_guide' else '' }}>راهنمای سفارش</option></select></div>
+      </div>
+    </section>
+    <section class="panel form-card">
+      <div class="form-card-heading"><span class="step-number">۲</span><div><h2>خلاصه کوتاه شما</h2><p>نکته‌ای را بنویسید که باید محور این پست باشد.</p></div></div>
+      <div class="field"><label for="user-brief">چه چیزی درباره این محصول گفته شود؟ <span>*</span></label><textarea id="user-brief" name="user_brief" rows="7" required placeholder="مثلاً این مدل برای پروژه‌های نئوکلاسیک معرفی شود و امکان سفارشی‌سازی آن برجسته شود.">{{ values.user_brief | default('') }}</textarea><small>قیمت و مشخصات ثبت‌شده خودکار اضافه می‌شوند؛ ویژگی تأییدنشده، تخفیف یا گارانتی را حدس نمی‌زنیم.</small></div>
+    </section>
+    <div class="form-actions"><a class="button button-secondary" href="/admin/products">بازگشت</a><button class="button button-primary" type="submit">ساخت پیش‌نویس آزمایشی</button></div>
   </form>
+  {% else %}
+  <section class="empty-state"><span class="empty-icon" aria-hidden="true">＋</span><h2>هنوز محصول فعالی ندارید</h2><p>برای شروع تولید محتوا، ابتدا یک محصول فعال همراه با قیمت و توضیحات ثبت کنید.</p><a class="button button-primary" href="/admin/products/new">افزودن محصول</a></section>
+  {% endif %}
 </main>
 {% endblock %}
-
