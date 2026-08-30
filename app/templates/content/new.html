@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}ساخت محتوا{% endblock %}
+{% block header_title %}استودیوی محتوا{% endblock %}
+{% block content %}
+<main>
+  <h1>ساخت محتوای محصول</h1>
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/content">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>محصول<select name="product_id">{% for product in products %}<option value="{{ product.id }}" {{ 'selected' if product.id == selected_product_id else '' }}>{{ product.name }}</option>{% endfor %}</select></label>
+    <label>زاویه محتوا<select name="requested_angle"><option value="product_intro">معرفی محصول</option><option value="educational">آموزشی</option><option value="faq">پرسش رایج</option><option value="problem_solution">مسئله و راه‌حل</option><option value="trust">اعتمادسازی</option><option value="order_guide">راهنمای سفارش</option></select></label>
+    <label>خلاصه مدیر<textarea name="user_brief">{{ values.user_brief | default('') }}</textarea></label>
+    <button type="submit">ساخت پیش‌نویس آزمایشی</button>
+  </form>
+</main>
+{% endblock %}
+

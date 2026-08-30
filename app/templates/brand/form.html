@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}تنظیمات برند{% endblock %}
+{% block header_title %}تنظیمات برند{% endblock %}
+{% block content %}
+<main>
+  <h1>تنظیمات برند</h1>
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/brand">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>نام برند<input name="business_name" value="{{ values.business_name }}"></label>
+    <label>شعار<input name="tagline" value="{{ values.tagline }}"></label>
+    <label>مخاطب<input name="audience" value="{{ values.audience }}"></label>
+    <label>لحن<textarea name="tone_guidelines">{{ values.tone_guidelines }}</textarea></label>
+    <label>آیدی پشتیبانی<input name="support_handle" value="{{ values.support_handle }}"></label>
+    <label>دعوت به اقدام<input name="default_cta" value="{{ values.default_cta }}"></label>
+    {% for claim in values.approved_claims %}<input name="approved_claim" value="{{ claim }}">{% endfor %}
+    {% if not values.approved_claims %}<input name="approved_claim" value="" placeholder="ادعای تأییدشده">{% endif %}
+    {% for tag in values.default_hashtags %}<input name="default_hashtag" value="{{ tag }}">{% endfor %}
+    <button type="submit">ذخیره تنظیمات برند</button>
+  </form>
+</main>
+{% endblock %}
+

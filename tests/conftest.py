@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal
 from io import BytesIO
 
 import pytest
@@ -7,6 +8,7 @@ from PIL import Image
 from pwdlib import PasswordHash
 from sqlalchemy.orm import Session
 
+from app.catalog.models import Product
 from app.core.config import Settings
 from app.core.database import Base, build_engine, build_session_factory
 from app.factory import create_app
@@ -84,3 +86,23 @@ def db_session(tmp_path) -> Session:
 
     Base.metadata.drop_all(engine)
     engine.dispose()
+
+
+@pytest.fixture
+def product(authenticated_client) -> Product:
+    session_factory = authenticated_client.app.state.session_factory
+    with session_factory() as session:
+        item = Product(
+            name="درب ممبران مدل آریا",
+            description="طراحی نئوکلاسیک با خطوط عمودی",
+            price=Decimal("12500000"),
+            availability="available",
+            shipping_info="ارسال به سراسر ایران",
+            attributes={"متریال": "MDF"},
+            tags=["درب ممبران", "نئوکلاسیک"],
+            active=True,
+        )
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return item

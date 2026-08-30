@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}پیش‌نمایش محتوا{% endblock %}
+{% block header_title %}پیش‌نمایش محتوا{% endblock %}
+{% block content %}
+<main>
+  <h1>{{ draft.product.name }}</h1>
+  <strong>{{ status_label }}</strong>
+  <div>حالت آزمایشی — بدون OpenAI</div>
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/content/{{ draft.id }}/edit">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <textarea name="final_caption">{{ draft.final_caption }}</textarea>
+    <button type="submit">ذخیره کپشن</button>
+  </form>
+  <form method="post" action="/admin/content/{{ draft.id }}/regenerate"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">بازتولید</button></form>
+  <form method="post" action="/admin/content/{{ draft.id }}/approve"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">تأیید</button></form>
+  <form method="post" action="/admin/content/{{ draft.id }}/reject"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">رد</button></form>
+  <h2>Voice اصلی</h2>
+  {% if voice %}<audio controls src="/admin/content/{{ draft.id }}/voice"></audio>{% endif %}
+  <form method="post" action="/admin/content/{{ draft.id }}/voice" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="duration_ms" value="">
+    <input type="file" name="voice" accept="audio/*">
+    <button type="submit">بارگذاری Voice</button>
+  </form>
+  <h2>تاریخچه نسخه‌ها</h2>
+  <ol>{% for item in history %}<li>نسخه {{ item.revision }} — {{ item.status }}</li>{% endfor %}</ol>
+</main>
+{% endblock %}
+

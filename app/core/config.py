@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     secret_key: str = Field(min_length=32)
     admin_username: str = "admin"
     admin_password_hash: str
+    content_provider: str = "template"
+    max_voice_bytes: int = Field(default=25 * 1024 * 1024, gt=0)
     debug: bool = False
 
 
