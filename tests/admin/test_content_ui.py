@@ -134,3 +134,26 @@ def test_voice_recorder_has_accessible_controls_and_private_source(
     assert 'type="file" name="voice" hidden' in page.text
     assert "فایل وویس" not in page.text
     assert "یک فایل صوتی انتخاب کنید" not in page.text
+
+
+def test_image_studio_explains_color_preservation_and_separates_text_phase(
+    authenticated_client, csrf_token, product, png_upload
+):
+    relative_path = f"products/{product.id}/original/source.png"
+    image_path = authenticated_client.app.state.settings.upload_dir / relative_path
+    image_path.parent.mkdir(parents=True, exist_ok=True)
+    image_path.write_bytes(png_upload)
+    with authenticated_client.app.state.session_factory() as session:
+        stored_product = session.get(type(product), product.id)
+        stored_product.primary_image_path = relative_path
+        session.commit()
+    draft_id = generate_content(authenticated_client, csrf_token, product.id)
+
+    page = authenticated_client.get(f"/admin/content/{draft_id}")
+
+    assert 'id="image-studio"' in page.text
+    assert "ویرایش تصویر محصول" in page.text
+    assert "حفظ رنگ واقعی محصول" in page.text
+    assert "هوشمند بر اساس رنگ محصول" in page.text
+    assert "فعلاً بدون متن و لوگو" in page.text
+    assert f'action="/admin/content/{draft_id}/image/generate"' in page.text

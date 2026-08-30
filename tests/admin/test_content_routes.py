@@ -1,4 +1,7 @@
 import re
+from io import BytesIO
+
+from PIL import Image
 
 from app.content.openai_provider import ContentProviderUnavailable
 
@@ -10,6 +13,17 @@ class UnavailableContentProvider:
         raise ContentProviderUnavailable(
             "سرویس OpenAI موقتاً در دسترس نیست؛ دوباره تلاش کنید."
         )
+
+
+class SuccessfulImageEditor:
+    name = "openai:gpt-image-2"
+
+    def edit(self, *, source, filename, mime_type, background_style):
+        from app.media.images import validate_image
+
+        output = BytesIO()
+        Image.new("RGB", (64, 64), "teal").save(output, format="PNG")
+        return validate_image(output.getvalue(), "edited.png", "image/png")
 
 
 def generate_content(client, csrf_token: str, product_id: int):
@@ -187,3 +201,79 @@ def test_private_voice_redirects_anonymous_user(
 
     assert response.status_code == 303
     assert response.headers["location"] == "/admin/login"
+
+
+def test_admin_generates_private_edited_image_without_changing_original(
+    authenticated_client, csrf_token, product, png_upload
+):
+    upload_root = authenticated_client.app.state.settings.upload_dir
+    original_relative = f"products/{product.id}/original/source.png"
+    original_path = upload_root / original_relative
+    original_path.parent.mkdir(parents=True, exist_ok=True)
+    original_path.write_bytes(png_upload)
+    with authenticated_client.app.state.session_factory() as session:
+        stored_product = session.get(type(product), product.id)
+        stored_product.primary_image_path = original_relative
+        session.commit()
+    created = generate_content(authenticated_client, csrf_token, product.id)
+    draft_id = draft_id_from(created)
+    authenticated_client.app.state.image_editor = SuccessfulImageEditor()
+
+    generated = authenticated_client.post(
+        f"/admin/content/{draft_id}/image/generate",
+        data={"csrf_token": csrf_token, "background_style": "adaptive_studio"},
+        follow_redirects=False,
+    )
+    preview = authenticated_client.get(f"/admin/content/{draft_id}/image")
+
+    assert generated.status_code == 303
+    assert generated.headers["location"] == (
+        f"/admin/content/{draft_id}?image_saved=1#image-studio"
+    )
+    assert preview.status_code == 200
+    assert preview.headers["content-type"] == "image/png"
+    assert preview.content != png_upload
+    assert original_path.read_bytes() == png_upload
+
+
+def test_edited_image_requires_admin_session(
+    client, authenticated_client, csrf_token, product, png_upload
+):
+    upload_root = authenticated_client.app.state.settings.upload_dir
+    original_relative = f"products/{product.id}/original/source.png"
+    original_path = upload_root / original_relative
+    original_path.parent.mkdir(parents=True, exist_ok=True)
+    original_path.write_bytes(png_upload)
+    with authenticated_client.app.state.session_factory() as session:
+        stored_product = session.get(type(product), product.id)
+        stored_product.primary_image_path = original_relative
+        session.commit()
+    draft_id = draft_id_from(
+        generate_content(authenticated_client, csrf_token, product.id)
+    )
+    authenticated_client.app.state.image_editor = SuccessfulImageEditor()
+    authenticated_client.post(
+        f"/admin/content/{draft_id}/image/generate",
+        data={"csrf_token": csrf_token, "background_style": "adaptive_studio"},
+    )
+    client.cookies.clear()
+
+    response = client.get(
+        f"/admin/content/{draft_id}/image", follow_redirects=False
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/admin/login"
+
+
+def test_image_generation_returns_not_found_for_unknown_draft(
+    authenticated_client, csrf_token
+):
+    authenticated_client.app.state.image_editor = SuccessfulImageEditor()
+
+    response = authenticated_client.post(
+        "/admin/content/99999/image/generate",
+        data={"csrf_token": csrf_token, "background_style": "adaptive_studio"},
+    )
+
+    assert response.status_code == 404

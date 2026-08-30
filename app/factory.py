@@ -16,39 +16,59 @@ from app.content.routes import router as content_router
 from app.core.config import Settings
 from app.core.database import build_engine, build_session_factory
 from app.core.logging import configure_logging
+from app.media.openai_image_editor import OpenAIImageEditor
 
 
 def create_app(settings: Settings) -> FastAPI:
     mimetypes.add_type("font/woff2", ".woff2")
     configure_logging(debug=settings.debug)
+    openai_api_key = (
+        settings.openai_api_key.get_secret_value().strip()
+        if settings.openai_api_key is not None
+        else ""
+    )
     if settings.content_provider == "template":
         provider = TemplateContentProvider()
     elif settings.content_provider == "openai":
-        if settings.openai_api_key is None:
+        if not openai_api_key:
             raise ValueError("OPENAI_API_KEY is required when CONTENT_PROVIDER=openai")
         provider = OpenAIContentProvider(
-            api_key=settings.openai_api_key.get_secret_value(),
+            api_key=openai_api_key,
             model=settings.openai_text_model,
             timeout_seconds=settings.openai_timeout_seconds,
         )
     else:
         raise ValueError("CONTENT_PROVIDER must be either 'template' or 'openai'")
 
+    image_editor = None
+    if openai_api_key:
+        image_editor = OpenAIImageEditor(
+            api_key=openai_api_key,
+            model=settings.openai_image_model,
+            quality=settings.openai_image_quality,
+            timeout_seconds=settings.openai_image_timeout_seconds,
+        )
+
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         yield
-        close = getattr(provider, "close", None)
-        if close is not None:
-            close()
+        for resource in (provider, image_editor):
+            close = getattr(resource, "close", None)
+            if close is not None:
+                close()
 
     app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
     app.state.settings = settings
     app.state.engine = build_engine(settings.database_url)
     app.state.session_factory = build_session_factory(app.state.engine)
     app.state.content_provider = provider
+    app.state.image_editor = image_editor
     product_upload_root = settings.upload_dir / "products"
     product_upload_root.mkdir(parents=True, exist_ok=True)
     (settings.upload_dir / "private" / "voices").mkdir(parents=True, exist_ok=True)
+    (settings.upload_dir / "private" / "edited_images").mkdir(
+        parents=True, exist_ok=True
+    )
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,

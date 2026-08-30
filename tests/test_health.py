@@ -62,3 +62,15 @@ def test_openai_provider_requires_api_key(tmp_path):
 
     with pytest.raises(ValueError, match="OPENAI_API_KEY"):
         create_app(settings)
+
+
+def test_template_mode_treats_blank_openai_key_as_image_editor_disabled(tmp_path):
+    app = create_app(
+        make_settings(
+            tmp_path,
+            content_provider="template",
+            openai_api_key="",
+        )
+    )
+
+    assert app.state.image_editor is None

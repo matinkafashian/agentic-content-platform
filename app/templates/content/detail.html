@@ -38,6 +38,42 @@
       </div>
     </article>
   </section>
+  <section class="panel image-studio" id="image-studio">
+    <div class="form-card-heading"><span class="step-number">▣</span><div><h2>ویرایش تصویر محصول</h2><p>تعویض پس‌زمینه و بهبود طبیعی کیفیت با حفظ رنگ واقعی محصول</p></div></div>
+    <div class="image-edit-note" role="note"><strong>حفظ رنگ و متریال در اولویت است</strong><span>هر تصویر مستقل بررسی می‌شود و پس‌زمینه هوشمند بر اساس رنگ محصول انتخاب می‌شود؛ محصول بازطراحی یا رنگ‌آمیزی نمی‌شود. این مرحله فعلاً بدون متن و لوگو است.</span></div>
+    {% if draft.product.primary_image_path %}
+    <div class="image-comparison">
+      <figure class="image-result-card">
+        <figcaption><strong>تصویر اصلی</strong><span>فایل محصول بدون تغییر باقی می‌ماند</span></figcaption>
+        <div class="image-result-frame"><img src="/uploads/{{ draft.product.primary_image_path }}" alt="تصویر اصلی {{ draft.product.name }}"></div>
+      </figure>
+      <figure class="image-result-card {{ 'is-ready' if edited_image else '' }}">
+        <figcaption><strong>نسخه استودیویی</strong><span>{{ 'ذخیره‌شده و آماده بررسی' if edited_image else 'پس از ویرایش اینجا نمایش داده می‌شود' }}</span></figcaption>
+        <div class="image-result-frame">
+          {% if edited_image %}<img src="/admin/content/{{ draft.id }}/image" alt="نسخه ویرایش‌شده {{ draft.product.name }}">{% else %}<div class="image-result-empty" aria-hidden="true"><span>✦</span><small>هنوز ساخته نشده</small></div>{% endif %}
+        </div>
+      </figure>
+    </div>
+    {% if image_saved %}<div class="alert alert-success" role="status">نسخه ویرایش‌شده با موفقیت ذخیره شد. لطفاً رنگ، فرم و جزئیات محصول را با تصویر اصلی مقایسه کنید.</div>{% endif %}
+    <form method="post" action="/admin/content/{{ draft.id }}/image/generate" class="image-edit-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field image-style-field">
+        <label for="background-style">سبک پس‌زمینه</label>
+        <select id="background-style" name="background_style">
+          <option value="adaptive_studio">هوشمند بر اساس رنگ محصول</option>
+          <option value="dark_studio">استودیویی تیره</option>
+          <option value="light_studio">استودیویی روشن</option>
+        </select>
+        <small>حالت هوشمند برای هر محصول، پس‌زمینه خنثی با کنتراست مناسب انتخاب می‌کند.</small>
+      </div>
+      <button class="button button-primary" type="submit" {{ 'disabled' if not image_editor_available else '' }}>{{ 'ساخت دوباره نسخه استودیویی' if edited_image else 'ساخت نسخه استودیویی' }}</button>
+    </form>
+    {% if not image_editor_available %}<p class="field-error" role="status">ویرایش تصویر تا زمان تنظیم کلید OpenAI غیرفعال است.</p>{% endif %}
+    {% if edited_image %}<div class="image-result-actions"><a class="button button-secondary" href="/admin/content/{{ draft.id }}/image?download=true">دانلود تصویر</a><form method="post" action="/admin/content/{{ draft.id }}/image/delete"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-danger" type="submit">حذف نسخه</button></form></div>{% endif %}
+    {% else %}
+    <div class="empty-state compact-empty"><strong>تصویر اصلی موجود نیست</strong><p>ابتدا در صفحه محصول یک تصویر معتبر ثبت کنید.</p><a class="button button-secondary" href="/admin/products/{{ draft.product.id }}/edit">ویرایش محصول</a></div>
+    {% endif %}
+  </section>
   <section class="panel voice-recorder" id="voice-studio" data-voice-recorder>
     <div class="form-card-heading"><span class="step-number">●</span><div><h2>وویس با صدای اصلی کارفرما</h2><p>بدون تبدیل صدا، افکت یا بازتولید هوش مصنوعی</p></div></div>
     <p class="voice-privacy">میکروفن فقط پس از فشردن دکمه ضبط فعال می‌شود. فایل در فضای خصوصی نگهداری شده و همان بایت‌های دریافت‌شده برای انتشار استفاده می‌شوند.</p>

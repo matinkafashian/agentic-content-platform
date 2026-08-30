@@ -19,6 +19,13 @@ from app.content.service import (
 from app.core.database import get_db
 from app.core.security import ensure_csrf_token, validate_csrf
 from app.core.templating import templates
+from app.media.image_edit_service import (
+    EditedImageRepository,
+    EditedImageService,
+    InvalidStoredImagePath,
+    resolve_product_original_path,
+)
+from app.media.openai_image_editor import ImageEditorError
 from app.media.voice import InvalidVoice, validate_voice
 from app.media.voice_service import VoiceRepository, VoiceService
 
@@ -44,6 +51,12 @@ def _content_service(request: Request, db: Session) -> ContentService:
 
 def _voice_service(request: Request, db: Session) -> VoiceService:
     return VoiceService(VoiceRepository(db), request.app.state.settings.upload_dir)
+
+
+def _image_service(request: Request, db: Session) -> EditedImageService:
+    return EditedImageService(
+        EditedImageRepository(db), request.app.state.settings.upload_dir
+    )
 
 
 def _render_new(
@@ -80,6 +93,7 @@ def _render_detail(
     *,
     error: str | None = None,
     voice_saved: bool = False,
+    image_saved: bool = False,
     status_code: int = 200,
 ):
     service = _content_service(request, db)
@@ -88,6 +102,7 @@ def _render_detail(
     except ContentNotFound as exc:
         raise HTTPException(status_code=404, detail="Content draft not found") from exc
     voice = VoiceRepository(db).for_draft(draft_id)
+    edited_image = EditedImageRepository(db).for_draft(draft_id)
     return templates.TemplateResponse(
         request=request,
         name="content/detail.html",
@@ -97,9 +112,12 @@ def _render_detail(
             "draft": draft,
             "history": service.history(draft_id),
             "voice": voice,
+            "edited_image": edited_image,
             "status_label": STATUS_LABELS[draft.status],
             "status_labels": STATUS_LABELS,
             "voice_saved": voice_saved,
+            "image_saved": image_saved,
+            "image_editor_available": request.app.state.image_editor is not None,
             "error": error,
         },
         status_code=status_code,
@@ -162,8 +180,135 @@ def content_detail(
     _admin: Annotated[str, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
     voice_saved: bool = False,
+    image_saved: bool = False,
 ):
-    return _render_detail(request, db, draft_id, voice_saved=voice_saved)
+    return _render_detail(
+        request,
+        db,
+        draft_id,
+        voice_saved=voice_saved,
+        image_saved=image_saved,
+    )
+
+
+@router.post("/{draft_id}/image/generate")
+def generate_edited_image(
+    draft_id: int,
+    request: Request,
+    _admin: Annotated[str, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    csrf_token: Annotated[str, Form()] = "",
+    background_style: Annotated[str, Form()] = "adaptive_studio",
+):
+    validate_csrf(request, csrf_token)
+    editor = request.app.state.image_editor
+    if editor is None:
+        return _render_detail(
+            request,
+            db,
+            draft_id,
+            error="سرویس ویرایش تصویر فعال نیست؛ کلید OpenAI باید تنظیم شود.",
+            status_code=503,
+        )
+    try:
+        draft = _content_service(request, db).get(draft_id)
+        relative_path = draft.product.primary_image_path
+        if not relative_path:
+            return _render_detail(
+                request,
+                db,
+                draft_id,
+                error="برای این محصول هنوز تصویر اصلی ثبت نشده است.",
+                status_code=422,
+            )
+        source_path = resolve_product_original_path(
+            request.app.state.settings.upload_dir,
+            draft.product.id,
+            relative_path,
+        )
+        if not source_path.is_file():
+            return _render_detail(
+                request,
+                db,
+                draft_id,
+                error="فایل تصویر اصلی محصول پیدا نشد.",
+                status_code=422,
+            )
+        mime_type = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".webp": "image/webp",
+        }.get(source_path.suffix.lower())
+        if mime_type is None:
+            return _render_detail(
+                request,
+                db,
+                draft_id,
+                error="فرمت تصویر اصلی برای ویرایش پشتیبانی نمی‌شود.",
+                status_code=422,
+            )
+        edited = editor.edit(
+            source=source_path.read_bytes(),
+            filename=source_path.name,
+            mime_type=mime_type,
+            background_style=background_style,
+        )
+        _image_service(request, db).attach_or_replace(draft_id, edited)
+    except ValueError as exc:
+        return _render_detail(
+            request, db, draft_id, error=str(exc), status_code=422
+        )
+    except ContentNotFound as exc:
+        raise HTTPException(status_code=404, detail="Content draft not found") from exc
+    except (ImageEditorError, InvalidStoredImagePath) as exc:
+        return _render_detail(
+            request, db, draft_id, error=str(exc), status_code=503
+        )
+    return RedirectResponse(
+        f"/admin/content/{draft_id}?image_saved=1#image-studio",
+        status_code=303,
+    )
+
+
+@router.get("/{draft_id}/image")
+def private_edited_image(
+    draft_id: int,
+    request: Request,
+    _admin: Annotated[str, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    download: bool = False,
+):
+    asset = EditedImageRepository(db).for_draft(draft_id)
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Edited image not found")
+    path = _image_service(request, db).path_for(asset)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Edited image not found")
+    return FileResponse(
+        path,
+        media_type=asset.mime_type,
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="edited-product-{draft_id}.png"'
+                if download
+                else "inline"
+            ),
+        },
+    )
+
+
+@router.post("/{draft_id}/image/delete")
+def delete_edited_image(
+    draft_id: int,
+    request: Request,
+    _admin: Annotated[str, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    csrf_token: Annotated[str, Form()] = "",
+):
+    validate_csrf(request, csrf_token)
+    _image_service(request, db).delete(draft_id)
+    return RedirectResponse(f"/admin/content/{draft_id}#image-studio", status_code=303)
 
 
 @router.post("/{draft_id}/edit", response_class=HTMLResponse)

@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,6 +20,9 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_text_model: str = "gpt-5.4-nano"
     openai_timeout_seconds: float = Field(default=45.0, gt=0, le=180)
+    openai_image_model: str = "gpt-image-2"
+    openai_image_quality: Literal["low", "medium", "high"] = "high"
+    openai_image_timeout_seconds: float = Field(default=180.0, gt=0, le=300)
     max_voice_bytes: int = Field(default=25 * 1024 * 1024, gt=0)
     debug: bool = False
 
