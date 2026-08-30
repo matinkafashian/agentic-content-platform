@@ -61,7 +61,7 @@ strong { font-weight: 750; }
 .brand-copy strong { color: white; font-size: 1.1rem; font-weight: 780; }
 .brand-copy small { color: #a8bdcb; font-size: 0.72rem; }
 .primary-nav { display: grid; gap: var(--space-8); }
-.nav-item { display: flex; min-height: 3.15rem; align-items: center; gap: var(--space-12); width: 100%; padding: 0.68rem 0.9rem; color: #b5c6d2; background: transparent; border: 1px solid transparent; border-radius: 0.85rem; cursor: pointer; font-weight: 600; text-align: start; transition: background 160ms ease, border 160ms ease, color 160ms ease, transform 160ms ease; }
+.nav-item { display: flex; min-height: 3rem; align-items: center; gap: var(--space-12); width: 100%; padding: 0.5rem 0.9rem; color: #b5c6d2; background: transparent; border: 1px solid transparent; border-radius: 0.85rem; cursor: pointer; font-weight: 600; text-align: start; transition: background 160ms ease, border 160ms ease, color 160ms ease, transform 160ms ease; }
 .nav-item svg { width: 1.35rem; height: 1.35rem; flex: 0 0 auto; fill: currentColor; }
 .nav-item:hover { color: white; background: rgba(255, 255, 255, 0.08); transform: translateX(-2px); }
 .nav-item.is-current { color: white; background: linear-gradient(90deg, rgba(26, 194, 181, 0.17), rgba(26, 194, 181, 0.09)); border-color: rgba(77, 221, 208, 0.12); box-shadow: inset -3px 0 #38cabe; }
@@ -91,14 +91,14 @@ strong { font-weight: 750; }
 .page-heading h1 { margin-block: 0.2rem var(--space-8); }
 .page-heading p { max-width: 47rem; margin-block-end: 0; }
 .page-heading-compact { margin-block-end: var(--space-24); }
-.button { display: inline-flex; min-height: 2.95rem; align-items: center; justify-content: center; gap: var(--space-8); padding: 0.64rem 1.15rem; border: 1px solid transparent; border-radius: 0.82rem; cursor: pointer; font-weight: 720; white-space: nowrap; transition: transform 160ms ease, border 160ms ease, box-shadow 160ms ease, background 160ms ease; }
+.button { display: inline-flex; min-height: 2.75rem; align-items: center; justify-content: center; gap: var(--space-8); padding: 0.55rem 1rem; border: 1px solid transparent; border-radius: 0.72rem; cursor: pointer; font-weight: 720; line-height: 1.4; white-space: nowrap; transition: transform 160ms ease, border 160ms ease, box-shadow 160ms ease, background 160ms ease; }
 .button:hover { transform: translateY(-1px); }
 .button-primary { color: white; background: linear-gradient(145deg, #16b4a7, var(--color-accent-strong)); box-shadow: 0 10px 24px rgba(8, 127, 121, 0.2); }
 .button-primary:hover { box-shadow: 0 12px 28px rgba(8, 127, 121, 0.26); }
 .button-secondary { color: var(--color-ink); background: white; border-color: var(--color-border); }
 .button-secondary:hover { border-color: #b8c9d3; box-shadow: var(--shadow-sm); }
 .button-ghost { color: var(--color-accent-strong); background: var(--color-accent-soft); }
-.button-small { min-height: 2.35rem; padding: 0.38rem 0.8rem; font-size: 0.78rem; }
+.button-small { min-height: 2.75rem; padding: 0.45rem 0.8rem; font-size: 0.78rem; }
 .button-block { width: 100%; }
 .icon-button { display: inline-grid; min-width: 2.75rem; min-height: 2.75rem; place-items: center; background: transparent; border: 0; border-radius: var(--radius-sm); cursor: pointer; }
 .text-link, .icon-link { color: var(--color-accent-strong); font-size: 0.78rem; font-weight: 800; }
@@ -234,19 +234,19 @@ input:focus, textarea:focus, select:focus { background: white; border-color: var
 .button-danger:hover { color: #741f2a; background: #ffe3e7; }
 .voice-recorder { margin-block-end: var(--space-24); scroll-margin-block-start: var(--space-24); }
 .voice-privacy { margin: 0 0 var(--space-20); padding: var(--space-12) var(--space-16); color: #315f5a; background: var(--color-accent-soft); border-radius: var(--radius-sm); font-size: 0.75rem; }
-.recorder-console { display: flex; min-height: 8.5rem; align-items: center; justify-content: space-between; gap: var(--space-24); padding: var(--space-20) clamp(1rem, 4vw, 2rem); background: linear-gradient(145deg, #f8fbfc, #f0f5f7); border: 1px solid #dce6eb; border-radius: var(--radius-md); }
-.record-controls { align-items: center; gap: 2.4rem; padding-block-end: 1.7rem; }
-.recorder-button { position: relative; display: grid; width: 4.75rem; height: 4.75rem; flex: 0 0 auto; place-items: center; padding: 0; border-radius: 50%; cursor: pointer; transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease; }
-.recorder-button svg { width: 1.8rem; fill: currentColor; }
-.recorder-button > span:last-child { position: absolute; inset-block-start: calc(100% + 0.45rem); color: var(--color-ink); font-size: 0.72rem; font-weight: 800; white-space: nowrap; }
+.recorder-console { display: flex; align-items: center; justify-content: space-between; gap: var(--space-20); padding: var(--space-16); background: linear-gradient(145deg, #f8fbfc, #f0f5f7); border: 1px solid #dce6eb; border-radius: var(--radius-md); }
+.record-controls { align-items: center; gap: var(--space-24); padding-block-end: 1.35rem; }
+.recorder-button { position: relative; display: grid; width: 3rem; height: 3rem; flex: 0 0 auto; place-items: center; padding: 0; border-radius: 50%; cursor: pointer; transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease; }
+.recorder-button svg { width: 1.15rem; fill: currentColor; }
+.recorder-button > span:last-child { position: absolute; inset-block-start: calc(100% + 0.35rem); color: var(--color-ink); font-size: 0.68rem; font-weight: 800; white-space: nowrap; }
 .recorder-button:hover:not(:disabled) { transform: translateY(-2px); }
 .recorder-button:focus-visible { outline: 4px solid rgba(15, 168, 155, 0.2); outline-offset: 4px; }
 .recorder-button:disabled { cursor: not-allowed; opacity: 0.38; }
-.recorder-start { color: white; background: #e5484d; border: 5px solid white; box-shadow: 0 0 0 1px #e5b1b3, 0 8px 22px rgba(196, 49, 56, 0.28); }
+.recorder-start { color: white; background: #e5484d; border: 3px solid white; box-shadow: 0 0 0 1px #e5b1b3, 0 6px 16px rgba(196, 49, 56, 0.24); }
 .recorder-stop { color: #d4373d; background: white; border: 2px solid #e3b1b4; box-shadow: 0 7px 18px rgba(16, 42, 67, 0.09); }
-.stop-square { width: 1.35rem; height: 1.35rem; background: currentColor; border-radius: 0.22rem; }
-.recorder-readout { display: grid; min-width: 9rem; justify-items: center; gap: var(--space-8); padding: var(--space-16) var(--space-24); direction: ltr; background: #102a43; border-radius: var(--radius-md); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
-.recorder-readout time { color: white; font-size: clamp(1.55rem, 4vw, 2.25rem); font-variant-numeric: tabular-nums; font-weight: 800; letter-spacing: 0.08em; }
+.stop-square { width: 0.9rem; height: 0.9rem; background: currentColor; border-radius: 0.18rem; }
+.recorder-readout { display: grid; min-width: 6.5rem; min-height: 2.75rem; justify-items: center; align-content: center; gap: 0.2rem; padding: 0.45rem 0.8rem; direction: ltr; background: #102a43; border-radius: 0.72rem; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.recorder-readout time { color: white; font-size: 1rem; font-variant-numeric: tabular-nums; font-weight: 800; letter-spacing: 0.06em; line-height: 1.2; }
 .voice-form { display: flex; margin-block-start: var(--space-16); }
 .recording-indicator { color: var(--color-error); font-size: 0.75rem; font-weight: 800; }
 .recording-indicator::before { display: inline-block; width: 0.55rem; height: 0.55rem; margin-inline-end: 0.4rem; content: ""; background: var(--color-error); border-radius: 50%; animation: record-pulse 1.2s ease-in-out infinite; }
@@ -254,7 +254,7 @@ input:focus, textarea:focus, select:focus { background: white; border-color: var
 .voice-recorder audio { width: min(100%, 42rem); margin-block: var(--space-12); }
 .record-preview { display: grid; justify-items: start; margin-block-start: var(--space-16); padding: var(--space-16); background: #fffaf0; border: 1px solid #f0dfb4; border-radius: var(--radius-md); }
 .record-preview strong { font-size: 0.78rem; }
-.saved-voice { display: grid; justify-items: stretch; margin-block-end: var(--space-20); padding: var(--space-20); background: #f1fbf8; border: 1px solid #cbe9df; border-radius: var(--radius-md); }
+.saved-voice { display: grid; justify-items: stretch; margin-block-end: var(--space-16); padding: var(--space-16); background: #f1fbf8; border: 1px solid #cbe9df; border-radius: var(--radius-md); }
 .saved-voice.is-newly-saved { box-shadow: 0 0 0 4px rgba(15, 168, 155, 0.09); }
 .saved-voice-heading { display: flex; align-items: center; gap: var(--space-12); }
 .saved-voice-heading > div { display: grid; gap: 0.15rem; }
