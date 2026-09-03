@@ -91,6 +91,9 @@ class Publication(Base):
     attempt_count: Mapped[int] = mapped_column(Integer, default=0)
     max_attempts: Mapped[int] = mapped_column(Integer, default=3)
     idempotency_key: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    delivery_key: Mapped[str | None] = mapped_column(
+        String(64), unique=True, index=True, nullable=True
+    )
     external_message_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     safe_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

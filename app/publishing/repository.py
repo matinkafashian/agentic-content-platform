@@ -62,11 +62,17 @@ class PublishingRepository:
     def get_publication(self, publication_id: int) -> Publication | None:
         return self.session.get(Publication, publication_id)
 
+    def publication_by_delivery_key(self, delivery_key: str) -> Publication | None:
+        return self.session.scalar(
+            select(Publication).where(Publication.delivery_key == delivery_key)
+        )
+
     def claim_for_delivery(self, publication_id: int) -> bool:
         statement = (
             update(Publication)
             .where(
                 Publication.id == publication_id,
+                Publication.delivery_key.is_not(None),
                 Publication.status.in_(
                     [
                         PublicationStatus.SCHEDULED.value,

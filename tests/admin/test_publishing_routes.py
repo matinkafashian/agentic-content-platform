@@ -24,7 +24,11 @@ class SuccessfulImageEditor:
 class SuccessfulTelegramAdapter:
     platform = "telegram"
 
+    def __init__(self):
+        self.send_count = 0
+
     def send(self, bundle, destination, idempotency_key):
+        self.send_count += 1
         return DeliveryResult.success(["telegram-test-message"])
 
 
@@ -382,6 +386,53 @@ def test_send_now_delivers_selected_bundle_immediately(
         publication = session.scalar(select(Publication))
         assert publication.status == "succeeded"
         assert publication.attempt_count == 1
+
+
+def test_repeated_send_now_request_does_not_deliver_the_same_bundle_twice(
+    authenticated_client, csrf_token, product, png_upload
+):
+    adapter = SuccessfulTelegramAdapter()
+    authenticated_client.app.state.platform_adapters["telegram"] = adapter
+    _set_product_image(authenticated_client, product, png_upload)
+    draft_id = _draft_id(authenticated_client, csrf_token, product)
+    authenticated_client.post(
+        f"/admin/content/{draft_id}/approve",
+        data={"csrf_token": csrf_token},
+    )
+    authenticated_client.post(
+        f"/admin/content/{draft_id}/bundle",
+        data={"csrf_token": csrf_token},
+    )
+    page = authenticated_client.get(f"/admin/content/{draft_id}")
+    bundle_id = re.search(
+        r'action="/admin/publishing/bundles/(\d+)/schedule"', page.text
+    ).group(1)
+    form = {
+        "csrf_token": csrf_token,
+        "platform": "telegram",
+        "destination": "@test_channel",
+        "delivery_action": "send_now",
+        "scheduled_for": "",
+    }
+
+    first = authenticated_client.post(
+        f"/admin/publishing/bundles/{bundle_id}/schedule",
+        data=form,
+        follow_redirects=False,
+    )
+    repeated = authenticated_client.post(
+        f"/admin/publishing/bundles/{bundle_id}/schedule",
+        data=form,
+        follow_redirects=False,
+    )
+
+    assert first.status_code == 303
+    assert repeated.status_code == 303
+    assert adapter.send_count == 1
+    with authenticated_client.app.state.session_factory() as session:
+        publications = list(session.scalars(select(Publication)))
+        assert len(publications) == 1
+        assert publications[0].status == "succeeded"
 
 
 def test_send_to_all_active_platforms_reports_each_result_independently(

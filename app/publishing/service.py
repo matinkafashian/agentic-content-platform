@@ -4,6 +4,8 @@ from hashlib import sha256
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from uuid import uuid4
 
+from sqlalchemy.exc import IntegrityError
+
 from app.content.models import DraftStatus
 from app.publishing.adapters import DeliveryResult, PlatformAdapter
 from app.publishing.models import (
@@ -167,8 +169,14 @@ class PublishingService:
                     raise ScheduleInputError(validation_error.safe_error_message)
             normalized_targets.append((platform, normalized_destination))
 
-        publications = [
-            Publication(
+        publications: list[Publication] = []
+        for platform, destination in normalized_targets:
+            delivery_key = self._delivery_key(bundle.id, platform, destination)
+            existing = self.repository.publication_by_delivery_key(delivery_key)
+            if existing is not None:
+                publications.append(existing)
+                continue
+            publication = Publication(
                 bundle_id=bundle.id,
                 platform=platform,
                 destination=destination,
@@ -177,19 +185,22 @@ class PublishingService:
                 attempt_count=0,
                 max_attempts=3,
                 idempotency_key=str(uuid4()),
+                delivery_key=delivery_key,
                 external_message_ids=[],
             )
-            for platform, destination in normalized_targets
-        ]
-        try:
-            for publication in publications:
+            try:
                 self.repository.add_publication(publication)
-            self.repository.commit()
-            for publication in publications:
+                self.repository.commit()
                 self.repository.refresh(publication)
-        except Exception:
-            self.repository.rollback()
-            raise
+            except IntegrityError:
+                self.repository.rollback()
+                publication = self.repository.publication_by_delivery_key(delivery_key)
+                if publication is None:
+                    raise
+            except Exception:
+                self.repository.rollback()
+                raise
+            publications.append(publication)
         return publications
 
     def run_due(self, *, now: datetime | None = None) -> list[Publication]:
@@ -222,15 +233,19 @@ class PublishingService:
             publication = self.repository.get_publication(publication_id)
             if publication is None:
                 raise ScheduleInputError("مورد ارسال پیدا نشد")
-            if publication.status not in {
+            publications.append(publication)
+        for publication in publications:
+            if publication.status in {
                 PublicationStatus.SCHEDULED.value,
                 PublicationStatus.RETRY_SCHEDULED.value,
             }:
-                raise ScheduleInputError("این مورد قبلاً پردازش شده است")
-            publications.append(publication)
-        for publication in publications:
-            self._deliver(publication, current)
+                self._deliver(publication, current)
         return publications
+
+    @staticmethod
+    def _delivery_key(bundle_id: int, platform: str, destination: str) -> str:
+        identity = f"{bundle_id}\x1f{platform}\x1f{destination}"
+        return sha256(identity.encode("utf-8")).hexdigest()
 
     def _deliver(self, publication: Publication, current: datetime) -> None:
         if not self.repository.claim_for_delivery(publication.id):

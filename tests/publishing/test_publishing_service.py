@@ -30,6 +30,17 @@ class SuccessfulAdapter:
         return DeliveryResult.success([f"sandbox-{idempotency_key}"])
 
 
+class CountingSuccessfulAdapter:
+    platform = "sandbox"
+
+    def __init__(self):
+        self.send_count = 0
+
+    def send(self, bundle, destination, idempotency_key):
+        self.send_count += 1
+        return DeliveryResult.success([f"sandbox-{idempotency_key}"])
+
+
 class TemporaryFailureAdapter:
     platform = "sandbox"
 
@@ -295,6 +306,36 @@ def test_publish_now_processes_only_the_selected_publication(
     assert other.attempt_count == 0
 
 
+def test_same_bundle_platform_and_destination_is_delivered_only_once(
+    db_session, tmp_path, content_service, draft, product
+):
+    _attach_original_image(db_session, tmp_path, product)
+    _approved_draft(content_service, draft)
+    adapter = CountingSuccessfulAdapter()
+    service = _service(db_session, tmp_path, adapter)
+    bundle = service.create_bundle(draft.id)
+
+    first = service.schedule(
+        bundle.id,
+        platform="sandbox",
+        destination="کانال آزمایشی",
+        scheduled_for=datetime.now(UTC),
+    )
+    service.publish_now(first.id)
+    repeated = service.schedule(
+        bundle.id,
+        platform="sandbox",
+        destination="کانال آزمایشی",
+        scheduled_for=datetime.now(UTC),
+    )
+    result = service.publish_now(repeated.id)
+
+    assert repeated.id == first.id
+    assert result.status == PublicationStatus.SUCCEEDED.value
+    assert result.attempt_count == 1
+    assert adapter.send_count == 1
+
+
 def test_multi_platform_publish_keeps_each_result_independent(
     db_session, tmp_path, content_service, draft, product
 ):
@@ -381,6 +422,31 @@ def test_publication_can_be_claimed_for_delivery_only_once(
     assert second_claim is False
     assert publication.status == PublicationStatus.PUBLISHING.value
     assert publication.attempt_count == 1
+
+
+def test_legacy_duplicate_without_delivery_key_cannot_be_claimed(
+    db_session, tmp_path, content_service, draft, product
+):
+    _attach_original_image(db_session, tmp_path, product)
+    _approved_draft(content_service, draft)
+    service = _service(db_session, tmp_path, SuccessfulAdapter())
+    bundle = service.create_bundle(draft.id)
+    publication = service.schedule(
+        bundle.id,
+        platform="sandbox",
+        destination="کانال آزمایشی",
+        scheduled_for=datetime.now(UTC),
+    )
+    publication.delivery_key = None
+    db_session.commit()
+    repository = PublishingRepository(db_session)
+
+    claimed = repository.claim_for_delivery(publication.id)
+    repository.refresh(publication)
+
+    assert claimed is False
+    assert publication.status == PublicationStatus.SCHEDULED.value
+    assert publication.attempt_count == 0
 
 
 def test_partial_failure_preserves_sent_message_ids_without_retry(
