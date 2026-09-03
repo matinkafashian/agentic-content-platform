@@ -38,6 +38,9 @@ def client(tmp_path, admin_credentials) -> TestClient:
         bale_default_destination="",
         rubika_bot_token=None,
         rubika_default_destination="",
+        whatsapp_bridge_token=None,
+        whatsapp_bridge_token_file=tmp_path / "whatsapp-bridge-token",
+        whatsapp_default_destination="",
         publishing_worker_enabled=False,
         debug=True,
     )

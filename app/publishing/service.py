@@ -233,9 +233,10 @@ class PublishingService:
         return publications
 
     def _deliver(self, publication: Publication, current: datetime) -> None:
-        publication.status = PublicationStatus.PUBLISHING.value
-        publication.attempt_count += 1
-        self.repository.commit()
+        if not self.repository.claim_for_delivery(publication.id):
+            self.repository.refresh(publication)
+            return
+        self.repository.refresh(publication)
         adapter = self.adapters.get(publication.platform)
         if adapter is None:
             result = DeliveryResult.failure(

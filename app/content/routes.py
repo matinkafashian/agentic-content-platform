@@ -227,7 +227,13 @@ def _render_detail(
             "default_publishing_platform": next(
                 (
                     name
-                    for name in ("telegram", "bale", "rubika", "sandbox")
+                    for name in (
+                        "telegram",
+                        "bale",
+                        "rubika",
+                        "whatsapp",
+                        "sandbox",
+                    )
                     if name in request.app.state.platform_adapters
                 ),
                 "sandbox",
@@ -239,7 +245,13 @@ def _render_detail(
             "default_publishing_destination": next(
                 (
                     publishing_default_destinations.get(name, "")
-                    for name in ("telegram", "bale", "rubika", "sandbox")
+                    for name in (
+                        "telegram",
+                        "bale",
+                        "rubika",
+                        "whatsapp",
+                        "sandbox",
+                    )
                     if name in request.app.state.platform_adapters
                 ),
                 "کانال آزمایشی",

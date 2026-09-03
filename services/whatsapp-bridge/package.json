@@ -1,0 +1,19 @@
+{
+  "name": "hayka-whatsapp-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local WhatsApp Web bridge for the Hayka content platform",
+  "main": "bridge.js",
+  "scripts": {
+    "start": "node bridge.js",
+    "check": "node --check bridge.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "17.2.2",
+    "qrcode": "1.5.4",
+    "whatsapp-web.js": "https://github.com/kristoflouviere/whatsapp-web.js/archive/c8a550cd8d815a4a2a53243c433976b3a18ec795.tar.gz"
+  }
+}

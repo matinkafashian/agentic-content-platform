@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.content.models import ContentDraft, DraftStatus
@@ -62,6 +62,28 @@ class PublishingRepository:
     def get_publication(self, publication_id: int) -> Publication | None:
         return self.session.get(Publication, publication_id)
 
+    def claim_for_delivery(self, publication_id: int) -> bool:
+        statement = (
+            update(Publication)
+            .where(
+                Publication.id == publication_id,
+                Publication.status.in_(
+                    [
+                        PublicationStatus.SCHEDULED.value,
+                        PublicationStatus.RETRY_SCHEDULED.value,
+                    ]
+                ),
+            )
+            .values(
+                status=PublicationStatus.PUBLISHING.value,
+                attempt_count=Publication.attempt_count + 1,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        result = self.session.execute(statement)
+        self.session.commit()
+        return result.rowcount == 1
+
     def list_publications(self, *, limit: int = 100) -> list[Publication]:
         statement = (
             select(Publication)
@@ -97,4 +119,3 @@ class PublishingRepository:
 
     def refresh(self, value: object) -> None:
         self.session.refresh(value)
-

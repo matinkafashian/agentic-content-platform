@@ -23,6 +23,9 @@ def make_settings(
         "bale_default_destination": "",
         "rubika_bot_token": None,
         "rubika_default_destination": "",
+        "whatsapp_bridge_token": None,
+        "whatsapp_bridge_token_file": tmp_path / "whatsapp-bridge-token",
+        "whatsapp_default_destination": "",
         "publishing_worker_enabled": False,
         "debug": True,
     }
@@ -150,3 +153,41 @@ def test_app_registers_rubika_only_when_secret_token_is_configured(tmp_path):
     )
     assert "rubika-test-secret-token" not in repr(settings)
     with_token.state.platform_adapters["rubika"].close()
+
+
+def test_app_registers_whatsapp_only_when_bridge_token_is_configured(tmp_path):
+    without_token = create_app(make_settings(tmp_path, whatsapp_bridge_token=None))
+    settings = make_settings(
+        tmp_path,
+        telegram_bot_token=None,
+        bale_bot_token=None,
+        rubika_bot_token=None,
+        whatsapp_bridge_token="whatsapp-test-bridge-secret",
+        whatsapp_default_destination="120363123456789@g.us",
+    )
+    with_token = create_app(settings)
+
+    assert set(without_token.state.platform_adapters) == {"sandbox"}
+    assert set(with_token.state.platform_adapters) == {"sandbox", "whatsapp"}
+    assert with_token.state.platform_default_destinations["whatsapp"] == (
+        "120363123456789@g.us"
+    )
+    assert "whatsapp-test-bridge-secret" not in repr(settings)
+    with_token.state.platform_adapters["whatsapp"].close()
+
+
+def test_app_can_load_whatsapp_bridge_token_from_ignored_runtime_file(tmp_path):
+    token_file = tmp_path / "runtime" / "bridge-token"
+    token_file.parent.mkdir()
+    token_file.write_text("runtime-whatsapp-test-secret-123456", encoding="utf-8")
+    settings = make_settings(
+        tmp_path,
+        whatsapp_bridge_token=None,
+        whatsapp_bridge_token_file=token_file,
+        whatsapp_default_destination="120363123456789@g.us",
+    )
+
+    app = create_app(settings)
+
+    assert set(app.state.platform_adapters) == {"sandbox", "whatsapp"}
+    app.state.platform_adapters["whatsapp"].close()

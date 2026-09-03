@@ -42,6 +42,13 @@ class SuccessfulRubikaAdapter:
         return DeliveryResult.success(["rubika-test-message"])
 
 
+class SuccessfulWhatsAppAdapter:
+    platform = "whatsapp"
+
+    def send(self, bundle, destination, idempotency_key):
+        return DeliveryResult.success(["whatsapp-test-message"])
+
+
 class FailedBaleAdapter:
     platform = "bale"
 
@@ -497,6 +504,33 @@ def test_content_page_includes_configured_rubika_in_all_channels(
 
     assert "روبیکا" in page.text
     assert "rubika-channel-chat-id" in page.text
+    assert 'name="platform" value="all"' in page.text
+
+
+def test_content_page_includes_configured_whatsapp_in_all_channels(
+    authenticated_client, csrf_token, product, png_upload
+):
+    authenticated_client.app.state.platform_adapters["whatsapp"] = (
+        SuccessfulWhatsAppAdapter()
+    )
+    authenticated_client.app.state.platform_default_destinations["whatsapp"] = (
+        "120363123456789@g.us"
+    )
+    _set_product_image(authenticated_client, product, png_upload)
+    draft_id = _draft_id(authenticated_client, csrf_token, product)
+    authenticated_client.post(
+        f"/admin/content/{draft_id}/approve",
+        data={"csrf_token": csrf_token},
+    )
+    authenticated_client.post(
+        f"/admin/content/{draft_id}/bundle",
+        data={"csrf_token": csrf_token},
+    )
+
+    page = authenticated_client.get(f"/admin/content/{draft_id}")
+
+    assert "واتساپ" in page.text
+    assert "120363123456789@g.us" in page.text
     assert 'name="platform" value="all"' in page.text
 
 

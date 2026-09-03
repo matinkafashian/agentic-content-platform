@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     rubika_bot_token: SecretStr | None = None
     rubika_default_destination: str = ""
     rubika_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+    whatsapp_bridge_url: str = "http://127.0.0.1:8780"
+    whatsapp_bridge_token: SecretStr | None = None
+    whatsapp_bridge_token_file: Path = Path(".whatsapp-runtime/bridge-token")
+    whatsapp_default_destination: str = ""
+    whatsapp_timeout_seconds: float = Field(default=60.0, gt=0, le=180)
     publishing_worker_enabled: bool = True
     publishing_poll_seconds: float = Field(default=15.0, ge=2.0, le=300.0)
     debug: bool = False

@@ -1,7 +1,7 @@
 import asyncio
 import mimetypes
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -24,6 +24,7 @@ from app.publishing.bale import BaleAdapter
 from app.publishing.routes import router as publishing_router
 from app.publishing.rubika import RubikaAdapter
 from app.publishing.telegram import TelegramAdapter, TelegramVoicePreparer
+from app.publishing.whatsapp import WhatsAppAdapter
 from app.publishing.worker import PublishingWorker, stop_worker
 
 
@@ -106,6 +107,26 @@ def create_app(settings: Settings) -> FastAPI:
         )
         platform_adapters["rubika"] = rubika_adapter
 
+    whatsapp_bridge_token = (
+        settings.whatsapp_bridge_token.get_secret_value().strip()
+        if settings.whatsapp_bridge_token is not None
+        else ""
+    )
+    if not whatsapp_bridge_token:
+        with suppress(FileNotFoundError):
+            whatsapp_bridge_token = (
+                settings.whatsapp_bridge_token_file.read_text(encoding="utf-8").strip()
+            )
+    whatsapp_adapter = None
+    if whatsapp_bridge_token:
+        whatsapp_adapter = WhatsAppAdapter(
+            bridge_url=settings.whatsapp_bridge_url,
+            bridge_token=whatsapp_bridge_token,
+            upload_root=settings.upload_dir,
+            timeout_seconds=settings.whatsapp_timeout_seconds,
+        )
+        platform_adapters["whatsapp"] = whatsapp_adapter
+
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         worker_task = None
@@ -127,6 +148,7 @@ def create_app(settings: Settings) -> FastAPI:
                 telegram_adapter,
                 bale_adapter,
                 rubika_adapter,
+                whatsapp_adapter,
             ):
                 close = getattr(resource, "close", None)
                 if close is not None:
@@ -145,6 +167,7 @@ def create_app(settings: Settings) -> FastAPI:
         "telegram": settings.telegram_default_destination.strip(),
         "bale": settings.bale_default_destination.strip(),
         "rubika": settings.rubika_default_destination.strip(),
+        "whatsapp": settings.whatsapp_default_destination.strip(),
     }
     product_upload_root = settings.upload_dir / "products"
     product_upload_root.mkdir(parents=True, exist_ok=True)

@@ -358,6 +358,31 @@ def test_retryable_failure_is_rescheduled_with_safe_error(
     assert publication.attempt_count == 3
 
 
+def test_publication_can_be_claimed_for_delivery_only_once(
+    db_session, tmp_path, content_service, draft, product
+):
+    _attach_original_image(db_session, tmp_path, product)
+    _approved_draft(content_service, draft)
+    service = _service(db_session, tmp_path, SuccessfulAdapter())
+    bundle = service.create_bundle(draft.id)
+    publication = service.schedule(
+        bundle.id,
+        platform="sandbox",
+        destination="کانال آزمایشی",
+        scheduled_for=datetime.now(UTC),
+    )
+    repository = PublishingRepository(db_session)
+
+    first_claim = repository.claim_for_delivery(publication.id)
+    second_claim = repository.claim_for_delivery(publication.id)
+    repository.refresh(publication)
+
+    assert first_claim is True
+    assert second_claim is False
+    assert publication.status == PublicationStatus.PUBLISHING.value
+    assert publication.attempt_count == 1
+
+
 def test_partial_failure_preserves_sent_message_ids_without_retry(
     db_session, tmp_path, content_service, draft, product
 ):

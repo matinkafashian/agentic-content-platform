@@ -11,8 +11,14 @@ _OPENAI_STYLE_SECRET = re.compile(r"(?i)(?<![a-z0-9])sk-[a-z0-9_-]+")
 _TELEGRAM_BOT_URL_SECRET = re.compile(
     r"(?i)(https://api\.telegram\.org/bot)[^/\s\"']+"
 )
+_BALE_BOT_URL_SECRET = re.compile(
+    r"(?i)(https://tapi\.bale\.ai/bot)[^/\s\"']+"
+)
 _RUBIKA_BOT_URL_SECRET = re.compile(
     r"(?i)(https://botapi\.rubika\.ir/v3/)[^/\s\"']+"
+)
+_RUBIKA_UPLOAD_URL_SECRET = re.compile(
+    r"(?i)(https://[a-z0-9.-]*rubika\.ir/upload/)[^/\s\"']+"
 )
 _factory_installed = False
 
@@ -24,7 +30,9 @@ def redact_secrets(message: str) -> str:
     )
     redacted = _OPENAI_STYLE_SECRET.sub("[REDACTED]", redacted)
     redacted = _TELEGRAM_BOT_URL_SECRET.sub(r"\1[REDACTED]", redacted)
-    return _RUBIKA_BOT_URL_SECRET.sub(r"\1[REDACTED]", redacted)
+    redacted = _BALE_BOT_URL_SECRET.sub(r"\1[REDACTED]", redacted)
+    redacted = _RUBIKA_BOT_URL_SECRET.sub(r"\1[REDACTED]", redacted)
+    return _RUBIKA_UPLOAD_URL_SECRET.sub(r"\1[REDACTED]", redacted)
 
 
 class SecretRedactionFilter(logging.Filter):

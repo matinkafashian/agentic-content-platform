@@ -40,6 +40,7 @@ PLATFORM_LABELS = {
     "telegram": "تلگرام",
     "bale": "بله",
     "rubika": "روبیکا",
+    "whatsapp": "واتساپ",
 }
 
 

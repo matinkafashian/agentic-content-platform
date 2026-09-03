@@ -84,3 +84,39 @@ def test_rubika_bot_token_is_redacted_from_third_party_request_url():
     rendered = record.getMessage()
     assert "private-token" not in rendered
     assert "https://botapi.rubika.ir/v3/[REDACTED]/sendFile" in rendered
+
+
+def test_bale_bot_token_is_redacted_from_third_party_request_url():
+    record = logging.LogRecord(
+        name="httpx",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg='HTTP Request: POST %s "HTTP/1.1 200 OK"',
+        args=("https://tapi.bale.ai/bot123456:private-token/sendPhoto",),
+        exc_info=None,
+    )
+
+    SecretRedactionFilter().filter(record)
+
+    rendered = record.getMessage()
+    assert "123456:private-token" not in rendered
+    assert "https://tapi.bale.ai/bot[REDACTED]/sendPhoto" in rendered
+
+
+def test_rubika_upload_credential_is_redacted_from_request_url():
+    record = logging.LogRecord(
+        name="httpx",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg='HTTP Request: POST %s "HTTP/1.1 200 OK"',
+        args=("https://messengerg2f1.rubika.ir/upload/private-upload-key",),
+        exc_info=None,
+    )
+
+    SecretRedactionFilter().filter(record)
+
+    rendered = record.getMessage()
+    assert "private-upload-key" not in rendered
+    assert "https://messengerg2f1.rubika.ir/upload/[REDACTED]" in rendered
