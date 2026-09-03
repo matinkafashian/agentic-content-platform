@@ -217,6 +217,29 @@ def test_manual_content_rejects_too_short_text(content_service, product):
         )
 
 
+def test_manual_content_can_be_blank_for_a_media_only_post(
+    db_session, product
+):
+    BrandService(BrandRepository(db_session)).get_or_create()
+    service = ContentService(
+        ContentRepository(db_session),
+        ProductRepository(db_session),
+        BrandRepository(db_session),
+        FailingIfCalledProvider(),
+    )
+
+    draft = service.generate(
+        product.id,
+        user_brief="",
+        requested_angle="product_intro",
+        content_mode="manual",
+    )
+
+    assert draft.provider_name == "manual"
+    assert draft.user_brief == ""
+    assert draft.final_caption == ""
+
+
 def test_generation_does_not_use_style_examples_before_twenty_approvals(
     content_service, draft, db_session, product
 ):

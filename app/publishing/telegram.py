@@ -87,16 +87,18 @@ class TelegramAdapter:
         self._client = client or httpx.Client(timeout=timeout_seconds)
         self._voice_preparer = voice_preparer or TelegramVoicePreparer()
 
-    def send(
-        self, bundle: PostBundle, destination: str, idempotency_key: str
-    ) -> DeliveryResult:
+    def send(self, bundle: PostBundle, destination: str, idempotency_key: str) -> DeliveryResult:
         del idempotency_key
         validation_error = self.validate(bundle, destination)
         if validation_error is not None:
             return validation_error
 
         try:
-            image_path = self._bundle_path(bundle, bundle.image_relative_path)
+            image_path = (
+                self._bundle_path(bundle, bundle.image_relative_path)
+                if bundle.image_relative_path
+                else None
+            )
             voice_path = (
                 self._bundle_path(bundle, bundle.voice_relative_path)
                 if bundle.voice_relative_path
@@ -106,8 +108,7 @@ class TelegramAdapter:
             return DeliveryResult.failure(
                 code=self._code("bundle_invalid"),
                 message=(
-                    f"فایل رسانه بسته نهایی برای {self.service_label} معتبر یا "
-                    "قابل دسترسی نیست"
+                    f"فایل رسانه بسته نهایی برای {self.service_label} معتبر یا قابل دسترسی نیست"
                 ),
                 retryable=False,
             )
@@ -119,23 +120,28 @@ class TelegramAdapter:
         try:
             with voice_context as prepared_voice:
                 caption = bundle.caption_snapshot
-                photo_caption = (
-                    caption if len(caption) <= self.caption_limit else None
-                )
-                photo_result = self._send_media(
-                    method="sendPhoto",
-                    field_name="photo",
-                    path=image_path,
-                    mime_type=bundle.image_mime_type,
-                    destination=destination,
-                    caption=photo_caption,
-                )
-                if not photo_result.ok:
-                    return photo_result
-                sent_ids = list(photo_result.external_message_ids)
-                if photo_caption is None:
+                sent_ids: list[str] = []
+                if image_path is not None:
+                    photo_caption = caption if len(caption) <= self.caption_limit else None
+                    photo_result = self._send_media(
+                        method="sendPhoto",
+                        field_name="photo",
+                        path=image_path,
+                        mime_type=bundle.image_mime_type or "application/octet-stream",
+                        destination=destination,
+                        caption=photo_caption,
+                    )
+                    if not photo_result.ok:
+                        return photo_result
+                    sent_ids.extend(photo_result.external_message_ids)
+                    caption_needs_separate_message = bool(caption) and photo_caption is None
+                else:
+                    caption_needs_separate_message = bool(caption)
+                if caption_needs_separate_message:
                     text_result = self._send_text(destination, caption)
                     if not text_result.ok:
+                        if not sent_ids:
+                            return text_result
                         return DeliveryResult(
                             ok=False,
                             external_message_ids=sent_ids,
@@ -161,15 +167,14 @@ class TelegramAdapter:
             return DeliveryResult.failure(
                 code=self._code("voice_unavailable"),
                 message=(
-                    f"وویس برای ارسال {self.service_label} آماده نشد؛ تنظیمات FFmpeg "
-                    "را بررسی کنید"
+                    f"وویس برای ارسال {self.service_label} آماده نشد؛ تنظیمات FFmpeg را بررسی کنید"
                 ),
                 retryable=False,
             )
         if voice_result.ok:
-            return DeliveryResult.success(
-                [*sent_ids, *voice_result.external_message_ids]
-            )
+            return DeliveryResult.success([*sent_ids, *voice_result.external_message_ids])
+        if not sent_ids:
+            return voice_result
         return DeliveryResult(
             ok=False,
             external_message_ids=sent_ids,
@@ -181,9 +186,7 @@ class TelegramAdapter:
             retryable=False,
         )
 
-    def validate(
-        self, bundle: PostBundle, destination: str
-    ) -> DeliveryResult | None:
+    def validate(self, bundle: PostBundle, destination: str) -> DeliveryResult | None:
         if len(bundle.caption_snapshot) > self.message_limit:
             return DeliveryResult.failure(
                 code=self._code("caption_too_long"),
@@ -200,10 +203,7 @@ class TelegramAdapter:
         ):
             return DeliveryResult.failure(
                 code=self._code("destination_invalid"),
-                message=(
-                    f"مقصد {self.service_label} باید نام کانال با @ یا شناسه عددی "
-                    "-100 باشد"
-                ),
+                message=(f"مقصد {self.service_label} باید نام کانال با @ یا شناسه عددی -100 باشد"),
                 retryable=False,
             )
         return None
@@ -297,9 +297,7 @@ class TelegramAdapter:
             return {}
         return payload if isinstance(payload, dict) else {}
 
-    def _api_failure(
-        self, status_code: int, payload: dict[str, Any]
-    ) -> DeliveryResult:
+    def _api_failure(self, status_code: int, payload: dict[str, Any]) -> DeliveryResult:
         error_code = payload.get("error_code", status_code)
         if error_code == 429:
             retry_after = payload.get("parameters", {}).get("retry_after", 1)

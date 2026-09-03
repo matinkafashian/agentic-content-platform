@@ -12,7 +12,6 @@ def workflow(**overrides):
         "image_editor_available": True,
         "has_voice": False,
         "has_bundle": False,
-        "product_edit_url": "/admin/products/1/edit",
     }
     values.update(overrides)
     return build_content_workflow(**values)
@@ -24,9 +23,9 @@ def workflow(**overrides):
         ({}, "caption", "بررسی و تأیید متن", "#caption-studio"),
         (
             {"draft_status": "approved"},
-            "image",
-            "ساخت نسخه استودیویی",
-            "#image-studio",
+            "bundle",
+            "ساخت بسته نهایی",
+            "#publishing-bundle",
         ),
         (
             {"publishing_mode": "automatic"},
@@ -39,9 +38,9 @@ def workflow(**overrides):
                 "draft_status": "approved",
                 "has_original_image": False,
             },
-            "image",
-            "ثبت تصویر اصلی محصول",
-            "/admin/products/1/edit",
+            "bundle",
+            "ساخت بسته نهایی",
+            "#publishing-bundle",
         ),
         (
             {"draft_status": "rejected"},
@@ -82,11 +81,11 @@ def test_voice_is_complete_when_saved_and_optional_when_absent():
     assert absent.by_key["voice"].status_label == "اختیاری"
 
 
-def test_automatic_mode_explains_deferred_approval_and_image_generation():
+def test_automatic_mode_explains_deferred_approval_and_optional_image_editing():
     state = workflow(publishing_mode="automatic")
 
     assert state.by_key["caption"].status_label == "تأیید خودکار"
-    assert state.by_key["image"].status_label == "تولید خودکار"
+    assert state.by_key["image"].status_label == "ویرایش اختیاری"
     assert state.by_key["bundle"].status == "current"
 
 

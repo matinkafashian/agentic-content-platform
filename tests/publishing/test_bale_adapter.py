@@ -4,12 +4,15 @@ from app.publishing.bale import BaleAdapter
 from app.publishing.models import PostBundle
 
 
-def _bundle(tmp_path, *, caption="معرفی محصول", voice=None, voice_mime=None):
+def _bundle(
+    tmp_path, *, caption="معرفی محصول", image_enabled=True, voice=None, voice_mime=None
+):
     bundle_key = "bundle-bale-test"
     directory = tmp_path / "private" / "bundles" / bundle_key
     directory.mkdir(parents=True, exist_ok=True)
-    image = directory / "image.png"
-    image.write_bytes(b"valid-image-fixture")
+    image = directory / "image.png" if image_enabled else None
+    if image is not None:
+        image.write_bytes(b"valid-image-fixture")
     voice_path = None
     if voice is not None:
         voice_path = directory / voice[0]
@@ -18,10 +21,10 @@ def _bundle(tmp_path, *, caption="معرفی محصول", voice=None, voice_mime
         bundle_key=bundle_key,
         content_draft_id=1,
         caption_snapshot=caption,
-        image_relative_path=image.relative_to(tmp_path).as_posix(),
-        image_mime_type="image/png",
-        image_size_bytes=image.stat().st_size,
-        image_sha256="0" * 64,
+        image_relative_path=image.relative_to(tmp_path).as_posix() if image else None,
+        image_mime_type="image/png" if image else None,
+        image_size_bytes=image.stat().st_size if image else None,
+        image_sha256="0" * 64 if image else None,
         voice_relative_path=(
             voice_path.relative_to(tmp_path).as_posix() if voice_path else None
         ),
@@ -58,6 +61,30 @@ def test_bale_posts_photo_and_full_caption_to_channel(tmp_path):
     assert requests[0].url.path == "/bot123:bale-test-token/sendPhoto"
     assert requests[0].url.host == "tapi.bale.ai"
     assert caption.encode() in requests[0].content
+
+
+def test_bale_sends_text_without_an_image(tmp_path):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200, request=request, json={"ok": True, "result": {"message_id": 822}}
+        )
+
+    adapter = BaleAdapter(
+        bot_token="123:bale-test-token",
+        upload_root=tmp_path,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    result = adapter.send(
+        _bundle(tmp_path, image_enabled=False), "@bale_channel", "bale-text"
+    )
+
+    assert result.ok is True
+    assert result.external_message_ids == ["822"]
+    assert requests[0].url.path.endswith("/sendMessage")
 
 
 def test_bale_rejects_caption_over_4096_before_network(tmp_path):

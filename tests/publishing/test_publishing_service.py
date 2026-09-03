@@ -122,12 +122,11 @@ def draft(content_service, product):
     )
 
 
-def _service(db_session, tmp_path, adapter=None, *, require_edited_image=False):
+def _service(db_session, tmp_path, adapter=None):
     return PublishingService(
         PublishingRepository(db_session),
         tmp_path / "uploads",
         {"sandbox": adapter or SuccessfulAdapter()},
-        require_edited_image=require_edited_image,
     )
 
 
@@ -181,9 +180,7 @@ def test_bundle_snapshots_caption_image_and_optional_voice(
     assert (tmp_path / "uploads" / bundle.voice_relative_path).read_bytes() == voice
 
 
-def test_bundle_creation_is_idempotent(
-    db_session, tmp_path, content_service, draft, product
-):
+def test_bundle_creation_is_idempotent(db_session, tmp_path, content_service, draft, product):
     _attach_original_image(db_session, tmp_path, product)
     _approved_draft(content_service, draft)
     service = _service(db_session, tmp_path)
@@ -195,30 +192,74 @@ def test_bundle_creation_is_idempotent(
     assert second.bundle_key == first.bundle_key
 
 
-def test_manual_mode_requires_approved_draft(
-    db_session, tmp_path, draft, product
-):
+def test_manual_mode_requires_approved_draft(db_session, tmp_path, draft, product):
     _attach_original_image(db_session, tmp_path, product)
 
     with pytest.raises(BundleInputError, match="تأیید"):
         _service(db_session, tmp_path).create_bundle(draft.id)
 
 
-def test_real_image_workflow_requires_edited_image_before_bundle(
+def test_bundle_can_exclude_an_available_image(
     db_session, tmp_path, content_service, draft, product
 ):
     _attach_original_image(db_session, tmp_path, product)
     _approved_draft(content_service, draft)
 
-    with pytest.raises(BundleInputError, match="نسخه استودیویی"):
-        _service(
-            db_session, tmp_path, require_edited_image=True
-        ).create_bundle(draft.id)
+    bundle = _service(db_session, tmp_path).create_bundle(draft.id, include_image=False)
+
+    assert bundle.caption_snapshot == draft.final_caption
+    assert bundle.image_relative_path is None
+    assert bundle.image_mime_type is None
+    assert bundle.image_size_bytes is None
+    assert bundle.image_sha256 is None
 
 
-def test_automatic_mode_approves_safe_waiting_draft(
-    db_session, tmp_path, draft, product
+def test_bundle_can_contain_only_voice(db_session, tmp_path, content_service, draft):
+    voice = b"\x1aE\xdf\xa3voice-only" + b"\x00" * 24
+    voice_path = tmp_path / "uploads/private/voices/1/voice.webm"
+    voice_path.parent.mkdir(parents=True, exist_ok=True)
+    voice_path.write_bytes(voice)
+    db_session.add(
+        MediaAsset(
+            content_draft_id=draft.id,
+            kind="voice_original",
+            relative_path="private/voices/1/voice.webm",
+            mime_type="audio/webm",
+            size_bytes=len(voice),
+            sha256=sha256(voice).hexdigest(),
+            duration_ms=1200,
+        )
+    )
+    db_session.commit()
+    _approved_draft(content_service, draft)
+
+    bundle = _service(db_session, tmp_path).create_bundle(
+        draft.id,
+        include_caption=False,
+        include_image=False,
+        include_voice=True,
+    )
+
+    assert bundle.caption_snapshot == ""
+    assert bundle.image_relative_path is None
+    assert bundle.voice_sha256 == sha256(voice).hexdigest()
+
+
+def test_bundle_rejects_completely_empty_component_selection(
+    db_session, tmp_path, content_service, draft
 ):
+    _approved_draft(content_service, draft)
+
+    with pytest.raises(BundleInputError, match="حداقل متن، تصویر یا وویس"):
+        _service(db_session, tmp_path).create_bundle(
+            draft.id,
+            include_caption=False,
+            include_image=False,
+            include_voice=False,
+        )
+
+
+def test_automatic_mode_approves_safe_waiting_draft(db_session, tmp_path, draft, product):
     _attach_original_image(db_session, tmp_path, product)
     service = _service(db_session, tmp_path)
     service.set_mode(PublishingMode.AUTOMATIC)
@@ -271,9 +312,7 @@ def test_due_publication_records_success_and_external_ids(
     assert [item.id for item in processed] == [publication.id]
     assert publication.status == PublicationStatus.SUCCEEDED.value
     assert publication.attempt_count == 1
-    assert publication.external_message_ids == [
-        f"sandbox-{publication.idempotency_key}"
-    ]
+    assert publication.external_message_ids == [f"sandbox-{publication.idempotency_key}"]
     assert publication.published_at is not None
 
 
@@ -364,9 +403,7 @@ def test_multi_platform_publish_keeps_each_result_independent(
     assert [item.platform for item in results] == ["telegram", "bale"]
     assert results[0].status == PublicationStatus.SUCCEEDED.value
     assert results[1].status == PublicationStatus.FAILED.value
-    assert results[1].safe_error_message == (
-        "ارسال bale انجام نشد؛ اتصال را بررسی کنید"
-    )
+    assert results[1].safe_error_message == ("ارسال bale انجام نشد؛ اتصال را بررسی کنید")
     assert all(item.attempt_count == 1 for item in results)
 
 

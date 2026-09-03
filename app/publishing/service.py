@@ -35,13 +35,10 @@ class PublishingService:
         repository: PublishingRepository,
         upload_root: Path,
         adapters: dict[str, PlatformAdapter],
-        *,
-        require_edited_image: bool = False,
     ) -> None:
         self.repository = repository
         self.upload_root = upload_root
         self.adapters = adapters
-        self.require_edited_image = require_edited_image
 
     def control(self):
         control = self.repository.control()
@@ -59,7 +56,14 @@ class PublishingService:
         self.repository.refresh(control)
         return control
 
-    def create_bundle(self, draft_id: int) -> PostBundle:
+    def create_bundle(
+        self,
+        draft_id: int,
+        *,
+        include_caption: bool = True,
+        include_image: bool = True,
+        include_voice: bool = True,
+    ) -> PostBundle:
         existing = self.repository.bundle_for_draft(draft_id)
         if existing is not None:
             return existing
@@ -73,39 +77,46 @@ class PublishingService:
             raise BundleInputError("در حالت دستی ابتدا باید این نسخه را تأیید کنید")
         if not draft.product.active:
             raise BundleInputError("محصول غیرفعال است و قابل انتشار نیست")
-        caption = draft.final_caption.strip()
-        if not 20 <= len(caption) <= 4000:
+        caption = draft.final_caption.strip() if include_caption else ""
+        if len(caption) > 4000:
             raise BundleInputError("کپشن نهایی معتبر نیست")
 
-        image_path, image_mime = self._source_image(draft)
-        voice = self.repository.media_for_draft(draft.id, "voice_original")
+        image_source = self._source_image(draft) if include_image else None
+        image_path = image_source[0] if image_source else None
+        image_mime = image_source[1] if image_source else None
+        voice = (
+            self.repository.media_for_draft(draft.id, "voice_original") if include_voice else None
+        )
         voice_path = self._private_asset_path(voice.relative_path) if voice else None
         if voice_path is not None and not voice_path.is_file():
             raise BundleInputError("فایل وویس ذخیره‌شده پیدا نشد")
+        if not caption and image_path is None and voice_path is None:
+            raise BundleInputError("برای ساخت بسته، حداقل متن، تصویر یا وویس لازم است")
 
         bundle_key = str(uuid4())
         bundle_dir = self.upload_root / "private" / "bundles" / bundle_key
-        image_target = bundle_dir / f"image{image_path.suffix.lower()}"
+        image_target = bundle_dir / f"image{image_path.suffix.lower()}" if image_path else None
         voice_target = bundle_dir / f"voice{voice_path.suffix.lower()}" if voice_path else None
         try:
             bundle_dir.mkdir(parents=True, exist_ok=False)
-            shutil.copyfile(image_path, image_target)
+            if image_path is not None and image_target is not None:
+                shutil.copyfile(image_path, image_target)
             if voice_path is not None and voice_target is not None:
                 shutil.copyfile(voice_path, voice_target)
-            image_data = image_target.read_bytes()
+            image_data = image_target.read_bytes() if image_target else None
             voice_data = voice_target.read_bytes() if voice_target else None
             bundle = PostBundle(
                 bundle_key=bundle_key,
                 content_draft_id=draft.id,
                 caption_snapshot=caption,
-                image_relative_path=image_target.relative_to(self.upload_root).as_posix(),
+                image_relative_path=(
+                    image_target.relative_to(self.upload_root).as_posix() if image_target else None
+                ),
                 image_mime_type=image_mime,
-                image_size_bytes=len(image_data),
-                image_sha256=sha256(image_data).hexdigest(),
+                image_size_bytes=len(image_data) if image_data is not None else None,
+                image_sha256=sha256(image_data).hexdigest() if image_data else None,
                 voice_relative_path=(
-                    voice_target.relative_to(self.upload_root).as_posix()
-                    if voice_target
-                    else None
+                    voice_target.relative_to(self.upload_root).as_posix() if voice_target else None
                 ),
                 voice_mime_type=voice.mime_type if voice else None,
                 voice_size_bytes=len(voice_data) if voice_data is not None else None,
@@ -154,14 +165,10 @@ class PublishingService:
         for platform, destination in destinations.items():
             adapter = self.adapters.get(platform)
             if adapter is None:
-                raise ScheduleInputError(
-                    f"اتصال پلتفرم {platform} هنوز فعال نیست"
-                )
+                raise ScheduleInputError(f"اتصال پلتفرم {platform} هنوز فعال نیست")
             normalized_destination = destination.strip()
             if not 2 <= len(normalized_destination) <= 200:
-                raise ScheduleInputError(
-                    f"مقصد پلتفرم {platform} تنظیم نشده یا معتبر نیست"
-                )
+                raise ScheduleInputError(f"مقصد پلتفرم {platform} تنظیم نشده یا معتبر نیست")
             validator = getattr(adapter, "validate", None)
             if validator is not None:
                 validation_error = validator(bundle, normalized_destination)
@@ -214,9 +221,7 @@ class PublishingService:
             processed.append(publication)
         return processed
 
-    def publish_now(
-        self, publication_id: int, *, now: datetime | None = None
-    ) -> Publication:
+    def publish_now(self, publication_id: int, *, now: datetime | None = None) -> Publication:
         return self.publish_many_now([publication_id], now=now)[0]
 
     def publish_many_now(
@@ -290,19 +295,15 @@ class PublishingService:
         draft.status = DraftStatus.APPROVED.value
         draft.approved_at = datetime.now(UTC)
 
-    def _source_image(self, draft) -> tuple[Path, str]:
+    def _source_image(self, draft) -> tuple[Path, str] | None:
         edited = self.repository.media_for_draft(draft.id, "image_edited")
         if edited is not None:
             path = self._private_asset_path(edited.relative_path)
             mime = edited.mime_type
         else:
-            if self.require_edited_image:
-                raise BundleInputError(
-                    "ابتدا نسخه استودیویی تصویر را بسازید و بررسی کنید"
-                )
             relative = draft.product.primary_image_path
             if not relative:
-                raise BundleInputError("برای بسته نهایی باید تصویر محصول موجود باشد")
+                return None
             path = self._product_image_path(draft.product.id, relative)
             mime = {
                 ".jpg": "image/jpeg",
@@ -323,9 +324,7 @@ class PublishingService:
             expected_prefix=("products", str(product_id), "original"),
         )
 
-    def _safe_relative_path(
-        self, relative_path: str, *, expected_prefix: tuple[str, ...]
-    ) -> Path:
+    def _safe_relative_path(self, relative_path: str, *, expected_prefix: tuple[str, ...]) -> Path:
         candidate = PurePosixPath(relative_path.replace("\\", "/"))
         windows = PureWindowsPath(relative_path)
         if (
@@ -338,9 +337,7 @@ class PublishingService:
         return self.upload_root.joinpath(*candidate.parts)
 
     @staticmethod
-    def _apply_result(
-        publication: Publication, result: DeliveryResult, now: datetime
-    ) -> None:
+    def _apply_result(publication: Publication, result: DeliveryResult, now: datetime) -> None:
         if result.ok:
             publication.status = PublicationStatus.SUCCEEDED.value
             publication.external_message_ids = list(result.external_message_ids)
@@ -350,9 +347,7 @@ class PublishingService:
             return
         publication.external_message_ids = list(result.external_message_ids)
         publication.error_code = result.error_code or "delivery_failed"
-        publication.safe_error_message = (
-            result.safe_error_message or "ارسال ناموفق بود"
-        )
+        publication.safe_error_message = result.safe_error_message or "ارسال ناموفق بود"
         if result.retryable and publication.attempt_count < publication.max_attempts:
             publication.status = PublicationStatus.RETRY_SCHEDULED.value
             delays = (timedelta(minutes=1), timedelta(minutes=5), timedelta(minutes=15))

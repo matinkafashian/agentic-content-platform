@@ -13,9 +13,13 @@ from app.publishing.models import Publication
 class SuccessfulImageEditor:
     name = "openai:gpt-image-2"
 
+    def __init__(self):
+        self.requests = []
+
     def edit(self, *, source, filename, mime_type, background_style, **instructions):
         from app.media.images import validate_image
 
+        self.requests.append(instructions)
         output = BytesIO()
         Image.new("RGB", (64, 64), "teal").save(output, format="PNG")
         return validate_image(output.getvalue(), "edited.png", "image/png")
@@ -120,9 +124,7 @@ def test_admin_can_prepare_bundle_schedule_and_run_sandbox_delivery(
         data={
             "csrf_token": csrf_token,
             "destination": "کانال آزمایشی",
-            "scheduled_for": (
-                datetime.now(UTC) - timedelta(minutes=1)
-            ).strftime("%Y-%m-%dT%H:%M"),
+            "scheduled_for": (datetime.now(UTC) - timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M"),
         },
         follow_redirects=False,
     )
@@ -163,12 +165,13 @@ def test_automatic_mode_can_package_waiting_draft(
         assert session.get(ContentDraft, draft_id).status == DraftStatus.APPROVED.value
 
 
-def test_automatic_mode_generates_required_studio_image_before_bundle(
+def test_automatic_mode_does_not_generate_an_image_while_building_bundle(
     authenticated_client, csrf_token, product, png_upload
 ):
     _set_product_image(authenticated_client, product, png_upload)
     draft_id = _draft_id(authenticated_client, csrf_token, product)
-    authenticated_client.app.state.image_editor = SuccessfulImageEditor()
+    editor = SuccessfulImageEditor()
+    authenticated_client.app.state.image_editor = editor
     authenticated_client.post(
         "/admin/publishing/mode",
         data={"csrf_token": csrf_token, "mode": "automatic"},
@@ -181,12 +184,10 @@ def test_automatic_mode_generates_required_studio_image_before_bundle(
     )
 
     assert response.status_code == 303
-    image = authenticated_client.get(f"/admin/content/{draft_id}/image")
-    assert image.status_code == 200
-    assert image.content != png_upload
+    assert editor.requests == []
 
 
-def test_manual_mode_requires_studio_image_when_openai_editor_is_available(
+def test_manual_mode_can_build_bundle_without_selected_image(
     authenticated_client, csrf_token, product, png_upload
 ):
     _set_product_image(authenticated_client, product, png_upload)
@@ -199,16 +200,18 @@ def test_manual_mode_requires_studio_image_when_openai_editor_is_available(
 
     response = authenticated_client.post(
         f"/admin/content/{draft_id}/bundle",
-        data={"csrf_token": csrf_token},
+        data={
+            "csrf_token": csrf_token,
+            "component_selection": "1",
+            "include_caption": "1",
+        },
+        follow_redirects=False,
     )
 
-    assert response.status_code == 422
-    assert "نسخه استودیویی" in response.text
+    assert response.status_code == 303
 
 
-def test_paused_mode_prevents_manual_run(
-    authenticated_client, csrf_token
-):
+def test_paused_mode_prevents_manual_run(authenticated_client, csrf_token):
     authenticated_client.post(
         "/admin/publishing/mode",
         data={"csrf_token": csrf_token, "mode": "paused"},
@@ -235,9 +238,7 @@ def test_publishing_routes_require_authentication(client):
 def test_admin_can_choose_telegram_channel_when_adapter_is_configured(
     authenticated_client, csrf_token, product, png_upload
 ):
-    authenticated_client.app.state.platform_adapters["telegram"] = (
-        SuccessfulTelegramAdapter()
-    )
+    authenticated_client.app.state.platform_adapters["telegram"] = SuccessfulTelegramAdapter()
     authenticated_client.app.state.telegram_default_destination = "@test_channel"
     _set_product_image(authenticated_client, product, png_upload)
     draft_id = _draft_id(authenticated_client, csrf_token, product)
@@ -250,9 +251,7 @@ def test_admin_can_choose_telegram_channel_when_adapter_is_configured(
         data={"csrf_token": csrf_token},
     )
     page = authenticated_client.get(f"/admin/content/{draft_id}")
-    bundle_id = re.search(
-        r'action="/admin/publishing/bundles/(\d+)/schedule"', page.text
-    ).group(1)
+    bundle_id = re.search(r'action="/admin/publishing/bundles/(\d+)/schedule"', page.text).group(1)
 
     assert '<option value="telegram" selected>تلگرام</option>' in page.text
     assert 'value="@test_channel"' in page.text
@@ -267,9 +266,7 @@ def test_admin_can_choose_telegram_channel_when_adapter_is_configured(
             "csrf_token": csrf_token,
             "platform": "telegram",
             "destination": "@test_channel",
-            "scheduled_for": (
-                datetime.now(UTC) + timedelta(hours=1)
-            ).strftime("%Y-%m-%dT%H:%M"),
+            "scheduled_for": (datetime.now(UTC) + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M"),
         },
         follow_redirects=False,
     )
@@ -287,9 +284,7 @@ def test_admin_can_choose_telegram_channel_when_adapter_is_configured(
 def test_publishing_page_distinguishes_real_telegram_from_sandbox(
     authenticated_client,
 ):
-    authenticated_client.app.state.platform_adapters["telegram"] = (
-        SuccessfulTelegramAdapter()
-    )
+    authenticated_client.app.state.platform_adapters["telegram"] = SuccessfulTelegramAdapter()
 
     page = authenticated_client.get("/admin/publishing")
 
@@ -300,12 +295,8 @@ def test_publishing_page_distinguishes_real_telegram_from_sandbox(
 def test_admin_can_send_bundle_now_to_configured_bale_channel(
     authenticated_client, csrf_token, product, png_upload
 ):
-    authenticated_client.app.state.platform_adapters["bale"] = (
-        SuccessfulBaleAdapter()
-    )
-    authenticated_client.app.state.platform_default_destinations["bale"] = (
-        "@bale_test_channel"
-    )
+    authenticated_client.app.state.platform_adapters["bale"] = SuccessfulBaleAdapter()
+    authenticated_client.app.state.platform_default_destinations["bale"] = "@bale_test_channel"
     _set_product_image(authenticated_client, product, png_upload)
     draft_id = _draft_id(authenticated_client, csrf_token, product)
     authenticated_client.post(
@@ -317,9 +308,7 @@ def test_admin_can_send_bundle_now_to_configured_bale_channel(
         data={"csrf_token": csrf_token},
     )
     page = authenticated_client.get(f"/admin/content/{draft_id}")
-    bundle_id = re.search(
-        r'action="/admin/publishing/bundles/(\d+)/schedule"', page.text
-    ).group(1)
+    bundle_id = re.search(r'action="/admin/publishing/bundles/(\d+)/schedule"', page.text).group(1)
 
     assert re.search(r'<option value="bale"[^>]*>بله</option>', page.text)
     assert "@bale_test_channel" in page.text
@@ -348,9 +337,7 @@ def test_admin_can_send_bundle_now_to_configured_bale_channel(
 def test_send_now_delivers_selected_bundle_immediately(
     authenticated_client, csrf_token, product, png_upload
 ):
-    authenticated_client.app.state.platform_adapters["telegram"] = (
-        SuccessfulTelegramAdapter()
-    )
+    authenticated_client.app.state.platform_adapters["telegram"] = SuccessfulTelegramAdapter()
     _set_product_image(authenticated_client, product, png_upload)
     draft_id = _draft_id(authenticated_client, csrf_token, product)
     authenticated_client.post(
@@ -362,9 +349,7 @@ def test_send_now_delivers_selected_bundle_immediately(
         data={"csrf_token": csrf_token},
     )
     page = authenticated_client.get(f"/admin/content/{draft_id}")
-    bundle_id = re.search(
-        r'action="/admin/publishing/bundles/(\d+)/schedule"', page.text
-    ).group(1)
+    bundle_id = re.search(r'action="/admin/publishing/bundles/(\d+)/schedule"', page.text).group(1)
 
     response = authenticated_client.post(
         f"/admin/publishing/bundles/{bundle_id}/schedule",
@@ -404,9 +389,7 @@ def test_repeated_send_now_request_does_not_deliver_the_same_bundle_twice(
         data={"csrf_token": csrf_token},
     )
     page = authenticated_client.get(f"/admin/content/{draft_id}")
-    bundle_id = re.search(
-        r'action="/admin/publishing/bundles/(\d+)/schedule"', page.text
-    ).group(1)
+    bundle_id = re.search(r'action="/admin/publishing/bundles/(\d+)/schedule"', page.text).group(1)
     form = {
         "csrf_token": csrf_token,
         "platform": "telegram",
@@ -450,9 +433,7 @@ def test_send_to_all_active_platforms_reports_each_result_independently(
             "bale": "@bale_channel",
         }
     )
-    authenticated_client.app.state.telegram_default_destination = (
-        "@telegram_channel"
-    )
+    authenticated_client.app.state.telegram_default_destination = "@telegram_channel"
     _set_product_image(authenticated_client, product, png_upload)
     draft_id = _draft_id(authenticated_client, csrf_token, product)
     authenticated_client.post(
@@ -464,9 +445,7 @@ def test_send_to_all_active_platforms_reports_each_result_independently(
         data={"csrf_token": csrf_token},
     )
     page = authenticated_client.get(f"/admin/content/{draft_id}")
-    bundle_id = re.search(
-        r'action="/admin/publishing/bundles/(\d+)/schedule"', page.text
-    ).group(1)
+    bundle_id = re.search(r'action="/admin/publishing/bundles/(\d+)/schedule"', page.text).group(1)
 
     response = authenticated_client.post(
         f"/admin/publishing/bundles/{bundle_id}/schedule",
@@ -486,9 +465,7 @@ def test_send_to_all_active_platforms_reports_each_result_independently(
     assert "تلگرام با موفقیت ارسال شد" in feedback.text
     assert "ارسال بله انجام نشد" in feedback.text
     with authenticated_client.app.state.session_factory() as session:
-        publications = list(
-            session.scalars(select(Publication).order_by(Publication.id))
-        )
+        publications = list(session.scalars(select(Publication).order_by(Publication.id)))
         assert [item.platform for item in publications] == ["telegram", "bale"]
         assert [item.status for item in publications] == ["succeeded", "failed"]
 
@@ -508,9 +485,7 @@ def test_content_page_defaults_to_all_active_channels_with_advanced_single_send(
             "bale": "@bale_channel",
         }
     )
-    authenticated_client.app.state.telegram_default_destination = (
-        "@telegram_channel"
-    )
+    authenticated_client.app.state.telegram_default_destination = "@telegram_channel"
     _set_product_image(authenticated_client, product, png_upload)
     draft_id = _draft_id(authenticated_client, csrf_token, product)
     authenticated_client.post(
@@ -534,9 +509,7 @@ def test_content_page_defaults_to_all_active_channels_with_advanced_single_send(
 def test_content_page_includes_configured_rubika_in_all_channels(
     authenticated_client, csrf_token, product, png_upload
 ):
-    authenticated_client.app.state.platform_adapters["rubika"] = (
-        SuccessfulRubikaAdapter()
-    )
+    authenticated_client.app.state.platform_adapters["rubika"] = SuccessfulRubikaAdapter()
     authenticated_client.app.state.platform_default_destinations["rubika"] = (
         "rubika-channel-chat-id"
     )
@@ -561,9 +534,7 @@ def test_content_page_includes_configured_rubika_in_all_channels(
 def test_content_page_includes_configured_whatsapp_in_all_channels(
     authenticated_client, csrf_token, product, png_upload
 ):
-    authenticated_client.app.state.platform_adapters["whatsapp"] = (
-        SuccessfulWhatsAppAdapter()
-    )
+    authenticated_client.app.state.platform_adapters["whatsapp"] = SuccessfulWhatsAppAdapter()
     authenticated_client.app.state.platform_default_destinations["whatsapp"] = (
         "120363123456789@g.us"
     )

@@ -7,12 +7,20 @@ from app.publishing.models import PostBundle
 from app.publishing.whatsapp import WhatsAppAdapter
 
 
-def _bundle(tmp_path, *, voice=None, voice_mime=None):
+def _bundle(
+    tmp_path,
+    *,
+    caption="معرفی محصول تستی",
+    image_enabled=True,
+    voice=None,
+    voice_mime=None,
+):
     bundle_key = "bundle-whatsapp-test"
     directory = tmp_path / "private" / "bundles" / bundle_key
     directory.mkdir(parents=True, exist_ok=True)
-    image = directory / "image.png"
-    image.write_bytes(b"valid-image-fixture")
+    image = directory / "image.png" if image_enabled else None
+    if image is not None:
+        image.write_bytes(b"valid-image-fixture")
     voice_path = None
     if voice is not None:
         voice_path = directory / voice[0]
@@ -20,11 +28,11 @@ def _bundle(tmp_path, *, voice=None, voice_mime=None):
     return PostBundle(
         bundle_key=bundle_key,
         content_draft_id=1,
-        caption_snapshot="معرفی محصول تستی",
-        image_relative_path=image.relative_to(tmp_path).as_posix(),
-        image_mime_type="image/png",
-        image_size_bytes=image.stat().st_size,
-        image_sha256="0" * 64,
+        caption_snapshot=caption,
+        image_relative_path=image.relative_to(tmp_path).as_posix() if image else None,
+        image_mime_type="image/png" if image else None,
+        image_size_bytes=image.stat().st_size if image else None,
+        image_sha256="0" * 64 if image else None,
         voice_relative_path=(
             voice_path.relative_to(tmp_path).as_posix() if voice_path else None
         ),
@@ -67,6 +75,69 @@ def test_whatsapp_sends_bundle_to_local_bridge(tmp_path):
     assert result.ok is True
     assert result.external_message_ids == ["wa-message-1"]
     assert len(requests) == 1
+
+
+def test_whatsapp_sends_text_only_payload_without_image_path(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        assert payload["caption"] == "متن مستقل"
+        assert payload["image_path"] is None
+        assert payload["image_mime_type"] is None
+        return httpx.Response(
+            200,
+            request=request,
+            json={"ok": True, "message_ids": ["wa-text-1"]},
+        )
+
+    adapter = WhatsAppAdapter(
+        bridge_url="http://127.0.0.1:8780",
+        bridge_token="bridge-test-secret",
+        upload_root=tmp_path,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    result = adapter.send(
+        _bundle(tmp_path, caption="متن مستقل", image_enabled=False),
+        "120363123456789@g.us",
+        "whatsapp-text",
+    )
+
+    assert result.ok is True
+    assert result.external_message_ids == ["wa-text-1"]
+
+
+def test_whatsapp_sends_voice_only_payload(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        assert payload["caption"] == ""
+        assert payload["image_path"] is None
+        assert payload["voice_path"].endswith("voice.webm")
+        return httpx.Response(
+            200,
+            request=request,
+            json={"ok": True, "message_ids": ["wa-voice-only"]},
+        )
+
+    adapter = WhatsAppAdapter(
+        bridge_url="http://127.0.0.1:8780",
+        bridge_token="bridge-test-secret",
+        upload_root=tmp_path,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    bundle = _bundle(
+        tmp_path,
+        caption="",
+        image_enabled=False,
+        voice=("voice.webm", b"\x1aE\xdf\xa3voice"),
+        voice_mime="audio/webm",
+    )
+
+    result = adapter.send(
+        bundle, "120363123456789@g.us", "whatsapp-voice-only"
+    )
+
+    assert result.ok is True
+    assert result.external_message_ids == ["wa-voice-only"]
 
 
 def test_whatsapp_passes_original_voice_file_to_bridge(tmp_path):

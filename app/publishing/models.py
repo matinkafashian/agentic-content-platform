@@ -35,12 +35,8 @@ class PublishingControl(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
-    mode: Mapped[str] = mapped_column(
-        String(24), default=PublishingMode.MANUAL_APPROVAL.value
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        UTCDateTime(), default=utc_now, onupdate=utc_now
-    )
+    mode: Mapped[str] = mapped_column(String(24), default=PublishingMode.MANUAL_APPROVAL.value)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now, onupdate=utc_now)
 
 
 class PostBundle(Base):
@@ -52,10 +48,10 @@ class PostBundle(Base):
         ForeignKey("content_drafts.id"), unique=True, index=True
     )
     caption_snapshot: Mapped[str] = mapped_column(Text)
-    image_relative_path: Mapped[str] = mapped_column(String(500))
-    image_mime_type: Mapped[str] = mapped_column(String(100))
-    image_size_bytes: Mapped[int] = mapped_column(Integer)
-    image_sha256: Mapped[str] = mapped_column(String(64))
+    image_relative_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    image_mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    image_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    image_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     voice_relative_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     voice_mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     voice_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -98,9 +94,7 @@ class Publication(Base):
     error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     safe_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)
-    updated_at: Mapped[datetime] = mapped_column(
-        UTCDateTime(), default=utc_now, onupdate=utc_now
-    )
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now, onupdate=utc_now)
     published_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     bundle: Mapped[PostBundle] = relationship(back_populates="publications")

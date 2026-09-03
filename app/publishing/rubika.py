@@ -34,16 +34,18 @@ class RubikaAdapter:
         self._owns_client = client is None
         self._client = client or httpx.Client(timeout=timeout_seconds)
 
-    def send(
-        self, bundle: PostBundle, destination: str, idempotency_key: str
-    ) -> DeliveryResult:
+    def send(self, bundle: PostBundle, destination: str, idempotency_key: str) -> DeliveryResult:
         del idempotency_key
         validation_error = self.validate(bundle, destination)
         if validation_error is not None:
             return validation_error
 
         try:
-            image_path = self._bundle_path(bundle, bundle.image_relative_path)
+            image_path = (
+                self._bundle_path(bundle, bundle.image_relative_path)
+                if bundle.image_relative_path
+                else None
+            )
             voice_path = (
                 self._bundle_path(bundle, bundle.voice_relative_path)
                 if bundle.voice_relative_path
@@ -56,24 +58,29 @@ class RubikaAdapter:
                 retryable=False,
             )
 
-        image_result = self._upload_and_send(
-            destination=destination.strip(),
-            path=image_path,
-            mime_type=bundle.image_mime_type,
-            file_type="Image",
-            text=bundle.caption_snapshot,
-        )
-        if not image_result.ok:
-            return image_result
-        sent_ids = list(image_result.external_message_ids)
+        sent_ids: list[str] = []
+        if image_path is not None:
+            image_result = self._upload_and_send(
+                destination=destination.strip(),
+                path=image_path,
+                mime_type=bundle.image_mime_type or "application/octet-stream",
+                file_type="Image",
+                text=bundle.caption_snapshot or None,
+            )
+            if not image_result.ok:
+                return image_result
+            sent_ids.extend(image_result.external_message_ids)
+        elif bundle.caption_snapshot:
+            text_result = self._send_text(destination.strip(), bundle.caption_snapshot)
+            if not text_result.ok:
+                return text_result
+            sent_ids.extend(text_result.external_message_ids)
         if voice_path is None:
             return DeliveryResult.success(sent_ids)
 
         # Rubika only accepts MP3 for its native Voice type. Browser recordings
         # are WebM/Opus, so they are sent as File to preserve the original bytes.
-        voice_type = (
-            "Voice" if bundle.voice_mime_type == "audio/mpeg" else "File"
-        )
+        voice_type = "Voice" if bundle.voice_mime_type == "audio/mpeg" else "File"
         voice_result = self._upload_and_send(
             destination=destination.strip(),
             path=voice_path,
@@ -81,9 +88,9 @@ class RubikaAdapter:
             file_type=voice_type,
         )
         if voice_result.ok:
-            return DeliveryResult.success(
-                [*sent_ids, *voice_result.external_message_ids]
-            )
+            return DeliveryResult.success([*sent_ids, *voice_result.external_message_ids])
+        if not sent_ids:
+            return voice_result
         return DeliveryResult(
             ok=False,
             external_message_ids=sent_ids,
@@ -95,9 +102,7 @@ class RubikaAdapter:
             retryable=False,
         )
 
-    def validate(
-        self, bundle: PostBundle, destination: str
-    ) -> DeliveryResult | None:
+    def validate(self, bundle: PostBundle, destination: str) -> DeliveryResult | None:
         if len(bundle.caption_snapshot) > RUBIKA_CAPTION_LIMIT:
             return DeliveryResult.failure(
                 code="rubika_caption_too_long",
@@ -114,13 +119,16 @@ class RubikaAdapter:
                 message="شناسه مقصد روبیکا معتبر نیست؛ chat_id کانال را وارد کنید",
                 retryable=False,
             )
-        if bundle.image_mime_type not in RUBIKA_IMAGE_MIMES:
+        if bundle.image_mime_type is not None and bundle.image_mime_type not in RUBIKA_IMAGE_MIMES:
             return DeliveryResult.failure(
                 code="rubika_image_format_invalid",
                 message="فرمت تصویر برای روبیکا باید JPG، PNG، GIF یا WebP باشد",
                 retryable=False,
             )
-        if bundle.image_size_bytes > RUBIKA_IMAGE_LIMIT_BYTES:
+        if (
+            bundle.image_size_bytes is not None
+            and bundle.image_size_bytes > RUBIKA_IMAGE_LIMIT_BYTES
+        ):
             return DeliveryResult.failure(
                 code="rubika_image_too_large",
                 message="حجم تصویر روبیکا باید حداکثر ۱۰ مگابایت باشد",
@@ -140,6 +148,19 @@ class RubikaAdapter:
     def close(self) -> None:
         if self._owns_client:
             self._client.close()
+
+    def _send_text(self, destination: str, text: str) -> DeliveryResult:
+        response = self._post_json("sendMessage", {"chat_id": destination, "text": text})
+        if isinstance(response, DeliveryResult):
+            return response
+        message_id = self._data(response).get("message_id")
+        if not isinstance(message_id, (str, int)) or not str(message_id).strip():
+            return DeliveryResult.failure(
+                code="rubika_invalid_response",
+                message="پاسخ روبیکا برای ارسال متن کامل نبود",
+                retryable=True,
+            )
+        return DeliveryResult.success([str(message_id)])
 
     def _bundle_path(self, bundle: PostBundle, relative_path: str) -> Path:
         candidate = PurePosixPath(relative_path.replace("\\", "/"))
@@ -166,9 +187,7 @@ class RubikaAdapter:
         file_type: str,
         text: str | None = None,
     ) -> DeliveryResult:
-        upload_request = self._post_json(
-            "requestSendFile", {"type": file_type}
-        )
+        upload_request = self._post_json("requestSendFile", {"type": file_type})
         if isinstance(upload_request, DeliveryResult):
             return upload_request
         upload_url = self._data(upload_request).get("upload_url")
@@ -214,13 +233,9 @@ class RubikaAdapter:
             )
         return DeliveryResult.success([str(message_id)])
 
-    def _post_json(
-        self, method: str, payload: dict[str, str]
-    ) -> dict[str, Any] | DeliveryResult:
+    def _post_json(self, method: str, payload: dict[str, str]) -> dict[str, Any] | DeliveryResult:
         try:
-            response = self._client.post(
-                f"{self._base_url}/{method}", json=payload
-            )
+            response = self._client.post(f"{self._base_url}/{method}", json=payload)
         except (httpx.TimeoutException, httpx.NetworkError):
             return DeliveryResult.failure(
                 code="rubika_network_error",
@@ -246,9 +261,7 @@ class RubikaAdapter:
         return data if isinstance(data, dict) else {}
 
     @staticmethod
-    def _is_success(
-        response: httpx.Response, payload: dict[str, Any]
-    ) -> bool:
+    def _is_success(response: httpx.Response, payload: dict[str, Any]) -> bool:
         if not 200 <= response.status_code < 300:
             return False
         status = payload.get("status")
@@ -266,14 +279,9 @@ class RubikaAdapter:
         return parsed.scheme == "https" and bool(parsed.hostname)
 
     @staticmethod
-    def _api_failure(
-        status_code: int, payload: dict[str, Any]
-    ) -> DeliveryResult:
+    def _api_failure(status_code: int, payload: dict[str, Any]) -> DeliveryResult:
         detail = str(
-            payload.get("status_det")
-            or payload.get("message")
-            or payload.get("error")
-            or ""
+            payload.get("status_det") or payload.get("message") or payload.get("error") or ""
         ).upper()
         if status_code == 429 or "TOO_MANY" in detail:
             return DeliveryResult.failure(
@@ -291,8 +299,7 @@ class RubikaAdapter:
             return DeliveryResult.failure(
                 code="rubika_forbidden",
                 message=(
-                    "ربات روبیکا اجازه ارسال به این کانال را ندارد؛ دسترسی ادمین "
-                    "را بررسی کنید"
+                    "ربات روبیکا اجازه ارسال به این کانال را ندارد؛ دسترسی ادمین را بررسی کنید"
                 ),
                 retryable=False,
             )

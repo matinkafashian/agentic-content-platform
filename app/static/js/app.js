@@ -56,7 +56,7 @@
         panel.hidden = !active;
         panel.querySelectorAll("textarea").forEach((field) => {
           field.disabled = !active;
-          field.required = active;
+          field.required = active && selected === "ai";
         });
       });
       if (submit) {

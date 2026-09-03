@@ -38,25 +38,23 @@ class BaleAdapter(TelegramAdapter):
             voice_preparer=voice_preparer,
         )
 
-    def validate(
-        self, bundle: PostBundle, destination: str
-    ) -> DeliveryResult | None:
+    def validate(self, bundle: PostBundle, destination: str) -> DeliveryResult | None:
         if len(bundle.caption_snapshot) > self.message_limit:
             return DeliveryResult.failure(
                 code=self._code("caption_too_long"),
                 message="متن برای بله باید حداکثر ۴۰۹۶ نویسه باشد",
                 retryable=False,
             )
-        if bundle.image_size_bytes > BALE_PHOTO_UPLOAD_LIMIT:
+        if (
+            bundle.image_size_bytes is not None
+            and bundle.image_size_bytes > BALE_PHOTO_UPLOAD_LIMIT
+        ):
             return DeliveryResult.failure(
                 code=self._code("image_too_large"),
                 message="حجم تصویر برای ارسال مستقیم در بله باید حداکثر ۱۰ مگابایت باشد",
                 retryable=False,
             )
-        if (
-            bundle.voice_size_bytes is not None
-            and bundle.voice_size_bytes > BALE_FILE_UPLOAD_LIMIT
-        ):
+        if bundle.voice_size_bytes is not None and bundle.voice_size_bytes > BALE_FILE_UPLOAD_LIMIT:
             return DeliveryResult.failure(
                 code=self._code("voice_too_large"),
                 message="حجم وویس برای بله باید حداکثر ۵۰ مگابایت باشد",

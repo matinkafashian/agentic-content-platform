@@ -4,12 +4,15 @@ from app.publishing.models import PostBundle
 from app.publishing.telegram import TelegramAdapter, TelegramVoicePreparer
 
 
-def _bundle(tmp_path, *, caption="معرفی محصول", voice=None, voice_mime=None):
+def _bundle(
+    tmp_path, *, caption="معرفی محصول", image_enabled=True, voice=None, voice_mime=None
+):
     bundle_key = "bundle-telegram-test"
     directory = tmp_path / "private" / "bundles" / bundle_key
     directory.mkdir(parents=True)
-    image = directory / "image.png"
-    image.write_bytes(b"valid-image-fixture")
+    image = directory / "image.png" if image_enabled else None
+    if image is not None:
+        image.write_bytes(b"valid-image-fixture")
     voice_path = None
     if voice is not None:
         voice_path = directory / voice[0]
@@ -18,10 +21,10 @@ def _bundle(tmp_path, *, caption="معرفی محصول", voice=None, voice_mime
         bundle_key=bundle_key,
         content_draft_id=1,
         caption_snapshot=caption,
-        image_relative_path=image.relative_to(tmp_path).as_posix(),
-        image_mime_type="image/png",
-        image_size_bytes=image.stat().st_size,
-        image_sha256="0" * 64,
+        image_relative_path=image.relative_to(tmp_path).as_posix() if image else None,
+        image_mime_type="image/png" if image else None,
+        image_size_bytes=image.stat().st_size if image else None,
+        image_sha256="0" * 64 if image else None,
         voice_relative_path=(voice_path.relative_to(tmp_path).as_posix() if voice_path else None),
         voice_mime_type=voice_mime,
         voice_size_bytes=voice_path.stat().st_size if voice_path else None,
@@ -64,6 +67,63 @@ def test_send_posts_photo_and_caption_to_channel(tmp_path):
     assert b"@test_channel" in body
     assert "معرفی محصول".encode() in body
     assert b'form-data; name="photo"; filename="image.png"' in body
+
+
+def test_text_only_bundle_uses_send_message(tmp_path):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            request=request,
+            json={"ok": True, "result": {"message_id": 401}},
+        )
+
+    adapter = TelegramAdapter(
+        bot_token="123:test-token",
+        upload_root=tmp_path,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    result = adapter.send(
+        _bundle(tmp_path, image_enabled=False), "@test_channel", "text-only"
+    )
+
+    assert result.ok is True
+    assert result.external_message_ids == ["401"]
+    assert requests[0].url.path.endswith("/sendMessage")
+
+
+def test_voice_only_bundle_uses_send_voice(tmp_path):
+    methods = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        methods.append(request.url.path.rsplit("/", 1)[-1])
+        return httpx.Response(
+            200,
+            request=request,
+            json={"ok": True, "result": {"message_id": 402}},
+        )
+
+    adapter = TelegramAdapter(
+        bot_token="123:test-token",
+        upload_root=tmp_path,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    bundle = _bundle(
+        tmp_path,
+        caption="",
+        image_enabled=False,
+        voice=("voice.ogg", b"OggSvoice-fixture"),
+        voice_mime="audio/ogg",
+    )
+
+    result = adapter.send(bundle, "@test_channel", "voice-only")
+
+    assert result.ok is True
+    assert result.external_message_ids == ["402"]
+    assert methods == ["sendVoice"]
 
 
 def test_long_caption_is_sent_as_separate_message_without_truncation(tmp_path):

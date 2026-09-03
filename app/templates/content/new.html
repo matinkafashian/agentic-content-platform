@@ -35,7 +35,7 @@
         <div class="field"><label for="ai-brief">توضیح کوتاه شما <span>*</span></label><textarea id="ai-brief" name="ai_brief" rows="4" maxlength="500" placeholder="در ۲ تا ۳ خط بگویید درباره محصول چه نکاتی مهم است و متن روی چه موضوعی تمرکز کند.">{{ values.ai_brief | default('') }}</textarea><small>این متن عیناً منتشر نمی‌شود؛ هوش مصنوعی آن را با اطلاعات قطعی همین محصول به یک کپشن کامل تبدیل می‌کند.</small></div>
       </div>
       <div class="content-mode-panel" data-content-mode-panel="manual" hidden>
-        <div class="field"><label for="manual-caption">متن کامل برای انتشار <span>*</span></label><textarea id="manual-caption" name="manual_caption" rows="8" maxlength="3500" placeholder="متن نهایی موردنظر خودتان را دقیقاً همان‌طور که باید منتشر شود وارد کنید.">{{ values.manual_caption | default('') }}</textarea><small>سامانه متن را بازنویسی نمی‌کند؛ فقط پیام استعلام قیمت، شناسه ادمین و هشتگ‌ها را اضافه می‌کند.</small></div>
+        <div class="field"><label for="manual-caption">متن کامل برای انتشار (اختیاری)</label><textarea id="manual-caption" name="manual_caption" rows="8" maxlength="3500" placeholder="متن نهایی را وارد کنید؛ برای ساخت پست بدون متن، این کادر را خالی بگذارید.">{{ values.manual_caption | default('') }}</textarea><small>اگر متن وارد کنید، سامانه آن را بازنویسی نمی‌کند و فقط اطلاعات ثابت برند را اضافه می‌کند.</small></div>
       </div>
     </section>
     <div class="form-actions"><a class="button button-secondary" href="/admin/products">بازگشت</a><button class="button button-primary" type="submit" data-content-mode-submit>ساخت پیش‌نویس با هوش مصنوعی</button></div>

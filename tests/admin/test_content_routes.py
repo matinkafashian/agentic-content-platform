@@ -111,6 +111,31 @@ def test_admin_uses_manual_caption_without_calling_openai(
         assert draft.final_caption.startswith(f"{manual_text}\n\n")
 
 
+def test_admin_can_create_a_blank_manual_draft_for_media_only_content(
+    authenticated_client, csrf_token, product
+):
+    authenticated_client.app.state.content_provider = UnavailableContentProvider()
+
+    response = authenticated_client.post(
+        "/admin/content",
+        data={
+            "csrf_token": csrf_token,
+            "product_id": str(product.id),
+            "content_mode": "manual",
+            "ai_brief": "",
+            "manual_caption": "",
+            "requested_angle": "product_intro",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    with authenticated_client.app.state.session_factory() as session:
+        draft = session.get(ContentDraft, draft_id_from(response))
+        assert draft.provider_name == "manual"
+        assert draft.final_caption == ""
+
+
 def test_admin_edits_regenerates_and_approves_content(
     authenticated_client, csrf_token, product
 ):

@@ -41,14 +41,16 @@ class WhatsAppAdapter:
         self._owns_client = client is None
         self._client = client or httpx.Client(timeout=timeout_seconds)
 
-    def send(
-        self, bundle: PostBundle, destination: str, idempotency_key: str
-    ) -> DeliveryResult:
+    def send(self, bundle: PostBundle, destination: str, idempotency_key: str) -> DeliveryResult:
         validation_error = self.validate(bundle, destination)
         if validation_error is not None:
             return validation_error
         try:
-            image_path = self._bundle_path(bundle, bundle.image_relative_path)
+            image_path = (
+                self._bundle_path(bundle, bundle.image_relative_path)
+                if bundle.image_relative_path
+                else None
+            )
             voice_path = (
                 self._bundle_path(bundle, bundle.voice_relative_path)
                 if bundle.voice_relative_path
@@ -64,7 +66,7 @@ class WhatsAppAdapter:
         payload = {
             "destination": destination.strip(),
             "caption": bundle.caption_snapshot,
-            "image_path": str(image_path.resolve()),
+            "image_path": str(image_path.resolve()) if image_path else None,
             "image_mime_type": bundle.image_mime_type,
             "voice_path": str(voice_path.resolve()) if voice_path else None,
             "voice_mime_type": bundle.voice_mime_type,
@@ -79,9 +81,7 @@ class WhatsAppAdapter:
         except (httpx.TimeoutException, httpx.NetworkError):
             return DeliveryResult.failure(
                 code="whatsapp_bridge_unavailable",
-                message=(
-                    "اتصال محلی واتساپ در دسترس نیست؛ سرویس واتساپ را بررسی کنید"
-                ),
+                message=("اتصال محلی واتساپ در دسترس نیست؛ سرویس واتساپ را بررسی کنید"),
                 retryable=True,
             )
 
@@ -97,9 +97,7 @@ class WhatsAppAdapter:
             return DeliveryResult.success(message_ids)
         return self._failure(response.status_code, response_payload, message_ids)
 
-    def validate(
-        self, bundle: PostBundle, destination: str
-    ) -> DeliveryResult | None:
+    def validate(self, bundle: PostBundle, destination: str) -> DeliveryResult | None:
         if (
             not destination
             or destination != destination.strip()
@@ -113,7 +111,10 @@ class WhatsAppAdapter:
                 ),
                 retryable=False,
             )
-        if bundle.image_mime_type not in WHATSAPP_IMAGE_MIMES:
+        if (
+            bundle.image_mime_type is not None
+            and bundle.image_mime_type not in WHATSAPP_IMAGE_MIMES
+        ):
             return DeliveryResult.failure(
                 code="whatsapp_image_format_invalid",
                 message="فرمت تصویر واتساپ باید JPG، PNG یا WebP باشد",

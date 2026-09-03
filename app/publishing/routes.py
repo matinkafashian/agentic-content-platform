@@ -151,9 +151,7 @@ def schedule_bundle(
         else:
             if not scheduled_for.strip():
                 raise ScheduleInputError("برای زمان‌بندی، تاریخ و ساعت را انتخاب کنید")
-            when = _parse_local_datetime(
-                scheduled_for, request.app.state.settings.app_timezone
-            )
+            when = _parse_local_datetime(scheduled_for, request.app.state.settings.app_timezone)
         if platform == "all":
             publications = service.schedule_many(
                 bundle_id,
@@ -161,9 +159,7 @@ def schedule_bundle(
                 scheduled_for=when,
             )
             if delivery_action == "send_now":
-                results = service.publish_many_now(
-                    [publication.id for publication in publications]
-                )
+                results = service.publish_many_now([publication.id for publication in publications])
                 succeeded = [
                     item.platform
                     for item in results
@@ -181,9 +177,7 @@ def schedule_bundle(
                         "multi_failed": ",".join(failed),
                     }
                 )
-                return RedirectResponse(
-                    f"/admin/publishing?{query}", status_code=303
-                )
+                return RedirectResponse(f"/admin/publishing?{query}", status_code=303)
             return RedirectResponse(
                 f"/admin/publishing?scheduled={len(publications)}",
                 status_code=303,
@@ -197,9 +191,7 @@ def schedule_bundle(
         if delivery_action == "send_now":
             publication = service.publish_now(publication.id)
             if publication.status == PublicationStatus.SUCCEEDED.value:
-                return RedirectResponse(
-                    f"/admin/publishing?sent={publication.id}", status_code=303
-                )
+                return RedirectResponse(f"/admin/publishing?sent={publication.id}", status_code=303)
             return RedirectResponse(
                 f"/admin/publishing?send_failed={publication.id}", status_code=303
             )
@@ -222,9 +214,7 @@ def run_due_now(
         processed = len(publishing_service(request, db).run_due())
     except PublishingPaused:
         return RedirectResponse("/admin/publishing?paused=1", status_code=303)
-    return RedirectResponse(
-        f"/admin/publishing?processed={processed}", status_code=303
-    )
+    return RedirectResponse(f"/admin/publishing?processed={processed}", status_code=303)
 
 
 @router.get("/bundles/{bundle_id}/image")
@@ -235,7 +225,7 @@ def bundle_image(
     db: Annotated[Session, Depends(get_db)],
 ):
     bundle = PublishingRepository(db).get_bundle(bundle_id)
-    if bundle is None:
+    if bundle is None or not bundle.image_relative_path:
         raise HTTPException(status_code=404, detail="Bundle not found")
     path = _bundle_path(
         request.app.state.settings.upload_dir,
@@ -308,11 +298,7 @@ def _active_destinations(request: Request) -> dict[str, str]:
 
 
 def _platform_names(value: str) -> list[str]:
-    return [
-        PLATFORM_LABELS.get(platform, platform)
-        for platform in value.split(",")
-        if platform
-    ]
+    return [PLATFORM_LABELS.get(platform, platform) for platform in value.split(",") if platform]
 
 
 def _bundle_path(upload_root: Path, bundle_key: str, relative_path: str) -> Path:

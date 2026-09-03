@@ -49,18 +49,14 @@ def test_admin_navigation_exposes_content_studio_and_brand_settings(
     assert "انتشار و زمان‌بندی" in page.text
 
 
-def test_product_detail_links_directly_to_prefilled_content_form(
-    authenticated_client, product
-):
+def test_product_detail_links_directly_to_prefilled_content_form(authenticated_client, product):
     page = authenticated_client.get(f"/admin/products/{product.id}")
 
     assert f'href="/admin/content/new?product_id={product.id}"' in page.text
     assert "ساخت محتوا" in page.text
 
 
-def test_content_form_has_persian_guidance_and_all_angles(
-    authenticated_client, product
-):
+def test_content_form_has_persian_guidance_and_all_angles(authenticated_client, product):
     page = authenticated_client.get(f"/admin/content/new?product_id={product.id}")
 
     assert "روش آماده‌سازی متن" in page.text
@@ -150,7 +146,7 @@ def test_content_preview_exposes_one_clear_current_step_and_next_action(
     assert 'id="image-studio" open' not in page.text
 
 
-def test_workflow_moves_to_missing_image_after_manual_approval(
+def test_workflow_moves_to_bundle_after_manual_approval_without_image(
     authenticated_client, csrf_token, product
 ):
     draft_id = generate_content(authenticated_client, csrf_token, product.id)
@@ -161,10 +157,13 @@ def test_workflow_moves_to_missing_image_after_manual_approval(
 
     page = authenticated_client.get(f"/admin/content/{draft_id}")
 
-    assert 'data-workflow-current="image"' in page.text
-    assert "ثبت تصویر اصلی محصول" in page.text
-    assert f'href="/admin/products/{product.id}/edit"' in page.text
-    assert 'id="image-studio" open' in page.text
+    assert 'data-workflow-current="bundle"' in page.text
+    assert "ساخت بسته نهایی" in page.text
+    assert "نبود تصویر مانع ساخت و ارسال بسته نیست" in page.text
+    assert 'id="publishing-bundle" open' in page.text
+    assert 'name="include_caption" value="1" checked' in page.text
+    assert re.search(r'name="include_image"[^>]*disabled', page.text)
+    assert re.search(r'name="include_voice"[^>]*disabled', page.text)
 
 
 def test_automatic_workflow_points_directly_to_final_bundle(
@@ -206,9 +205,7 @@ def test_approval_reports_success_and_removes_actions_that_no_longer_apply(
         follow_redirects=False,
     )
     assert approved.status_code == 303
-    assert approved.headers["location"] == (
-        f"/admin/content/{draft_id}?approved=1#caption-studio"
-    )
+    assert approved.headers["location"] == (f"/admin/content/{draft_id}?approved=1#caption-studio")
 
     page = authenticated_client.get(approved.headers["location"])
     assert "متن تأیید شد و برای ساخت بسته نهایی آماده است" in page.text

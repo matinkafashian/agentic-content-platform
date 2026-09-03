@@ -366,6 +366,10 @@ input:focus, textarea:focus, select:focus { background: white; border-color: var
 .bundle-checklist > div.is-done > span { color: white; background: var(--color-success); }
 .bundle-checklist p, .bundle-checklist strong, .bundle-checklist small { display: block; margin: 0; }
 .bundle-checklist small { color: var(--color-muted); font-size: 0.7rem; }
+.bundle-component-options { display: flex; flex-wrap: wrap; gap: var(--space-8); margin: 0; padding: 0; border: 0; }
+.bundle-component-options legend { width: 100%; margin-bottom: var(--space-4); font-size: 0.78rem; font-weight: 800; }
+.bundle-component-options label { display: inline-flex; align-items: center; gap: var(--space-8); min-height: 2.75rem; padding: var(--space-8) var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: white; cursor: pointer; }
+.bundle-component-options label:has(input:disabled) { color: var(--color-muted); background: var(--color-surface); cursor: not-allowed; }
 .bundle-ready-card { display: grid; gap: var(--space-16); margin-block: var(--space-16); padding: var(--space-16); background: #f1fbf8; border: 1px solid #bfe3da; border-radius: var(--radius-md); }
 .bundle-ready-heading { display: flex; align-items: center; gap: var(--space-12); }
 .bundle-ready-heading > span { display: grid; width: 2.4rem; height: 2.4rem; flex: 0 0 auto; place-items: center; color: white; background: var(--color-success); border-radius: 50%; font-weight: 900; }

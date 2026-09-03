@@ -180,27 +180,45 @@ async function sendBundle(body) {
   if (!validDestination(destination)) {
     return badRequest('whatsapp_destination_invalid');
   }
-  const imagePath = safeMediaPath(body?.image_path);
+  const imagePath = body?.image_path ? safeMediaPath(body.image_path) : null;
   const voicePath = body?.voice_path ? safeMediaPath(body.voice_path) : null;
-  if (!imagePath || (body?.voice_path && !voicePath)) {
+  const caption = String(body?.caption || '').trim();
+  if ((body?.image_path && !imagePath) || (body?.voice_path && !voicePath)) {
+    return badRequest('whatsapp_media_invalid');
+  }
+  if (!caption && !imagePath && !voicePath) {
     return badRequest('whatsapp_media_invalid');
   }
 
   const sentIds = [];
-  try {
-    const imageMedia = MessageMedia.fromFilePath(imagePath);
-    const imageResult = await sendAndConfirm(destination, imageMedia, {
-      caption: String(body?.caption || ''),
-      sendSeen: false,
-    });
-    if (imageResult.id) sentIds.push(imageResult.id);
-    if (!imageResult.acknowledged) {
-      const result = unverified(sentIds);
-      completedRequests.set(idempotencyKey, result);
-      return result;
+  if (imagePath) {
+    try {
+      const imageMedia = MessageMedia.fromFilePath(imagePath);
+      const imageResult = await sendAndConfirm(destination, imageMedia, {
+        caption,
+        sendSeen: false,
+      });
+      if (imageResult.id) sentIds.push(imageResult.id);
+      if (!imageResult.acknowledged) {
+        const result = unverified(sentIds);
+        completedRequests.set(idempotencyKey, result);
+        return result;
+      }
+    } catch (error) {
+      return sendFailure(error);
     }
-  } catch (error) {
-    return sendFailure(error);
+  } else if (caption) {
+    try {
+      const textResult = await sendAndConfirm(destination, caption, { sendSeen: false });
+      if (textResult.id) sentIds.push(textResult.id);
+      if (!textResult.acknowledged) {
+        const result = unverified(sentIds);
+        completedRequests.set(idempotencyKey, result);
+        return result;
+      }
+    } catch (error) {
+      return sendFailure(error);
+    }
   }
 
   if (voicePath) {
@@ -212,12 +230,12 @@ async function sendBundle(body) {
       });
       if (voiceResult.id) sentIds.push(voiceResult.id);
       if (!voiceResult.acknowledged) {
-        const result = voicePartial(sentIds);
+        const result = sentIds.length > 1 ? voicePartial(sentIds) : unverified(sentIds);
         completedRequests.set(idempotencyKey, result);
         return result;
       }
     } catch (_error) {
-      const result = voicePartial(sentIds);
+      const result = sentIds.length ? voicePartial(sentIds) : sendFailure(_error);
       completedRequests.set(idempotencyKey, result);
       return result;
     }

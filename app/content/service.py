@@ -73,7 +73,11 @@ class ContentService:
             raise ContentInputError("روش آماده‌سازی متن معتبر نیست")
         if normalized_mode == "ai" and not normalized_text:
             raise ContentInputError("برای تولید با هوش مصنوعی، توضیح کوتاه را وارد کنید")
-        if normalized_mode == "manual" and not 20 <= len(normalized_text) <= 3500:
+        if (
+            normalized_mode == "manual"
+            and normalized_text
+            and not 20 <= len(normalized_text) <= 3500
+        ):
             raise ContentInputError("متن کامل باید بین ۲۰ تا ۳۵۰۰ نویسه باشد")
 
         request = self._generation_request(
@@ -82,7 +86,11 @@ class ContentService:
         if normalized_mode == "manual":
             provider_name = "manual"
             provider_payload = {"content_mode": "manual"}
-            final_caption = compose_manual_caption(normalized_text, request)
+            final_caption = (
+                compose_manual_caption(normalized_text, request)
+                if normalized_text
+                else ""
+            )
         else:
             generated = self.provider.generate(request)
             provider_name = self.provider.name
@@ -137,7 +145,7 @@ class ContentService:
         }:
             raise ContentStateError("نسخه تأییدشده یا منقضی قابل ویرایش نیست")
         normalized = caption.strip()
-        if not 20 <= len(normalized) <= 4000:
+        if normalized and not 20 <= len(normalized) <= 4000:
             raise ContentInputError("کپشن باید بین ۲۰ تا ۴۰۰۰ نویسه باشد")
         try:
             draft.final_caption = normalized

@@ -58,9 +58,7 @@ def _voice_service(request: Request, db: Session) -> VoiceService:
 
 
 def _image_service(request: Request, db: Session) -> EditedImageService:
-    return EditedImageService(
-        EditedImageRepository(db), request.app.state.settings.upload_dir
-    )
+    return EditedImageService(EditedImageRepository(db), request.app.state.settings.upload_dir)
 
 
 def _generate_and_store_edited_image(
@@ -175,14 +173,9 @@ def _render_detail(
         image_editor_available=request.app.state.image_editor is not None,
         has_voice=voice is not None,
         has_bundle=bundle is not None,
-        product_edit_url=f"/admin/products/{draft.product.id}/edit",
     )
-    publishing_default_destinations = dict(
-        request.app.state.platform_default_destinations
-    )
-    publishing_default_destinations["telegram"] = (
-        request.app.state.telegram_default_destination
-    )
+    publishing_default_destinations = dict(request.app.state.platform_default_destinations)
+    publishing_default_destinations["telegram"] = request.app.state.telegram_default_destination
     active_real_destinations = [
         (
             name,
@@ -190,13 +183,10 @@ def _render_detail(
             publishing_default_destinations.get(name, "").strip(),
         )
         for name in request.app.state.platform_adapters
-        if name != "sandbox"
-        and publishing_default_destinations.get(name, "").strip()
+        if name != "sandbox" and publishing_default_destinations.get(name, "").strip()
     ]
     if not active_real_destinations and "sandbox" in request.app.state.platform_adapters:
-        active_real_destinations = [
-            ("sandbox", PLATFORM_LABELS["sandbox"], "کانال آزمایشی")
-        ]
+        active_real_destinations = [("sandbox", PLATFORM_LABELS["sandbox"], "کانال آزمایشی")]
     return templates.TemplateResponse(
         request=request,
         name="content/detail.html",
@@ -238,9 +228,7 @@ def _render_detail(
                 ),
                 "sandbox",
             ),
-            "publishing_default_destinations": (
-                publishing_default_destinations
-            ),
+            "publishing_default_destinations": (publishing_default_destinations),
             "publishing_active_destinations": active_real_destinations,
             "default_publishing_destination": next(
                 (
@@ -256,9 +244,7 @@ def _render_detail(
                 ),
                 "کانال آزمایشی",
             ),
-            "telegram_default_destination": (
-                request.app.state.telegram_default_destination
-            ),
+            "telegram_default_destination": (request.app.state.telegram_default_destination),
             "image_editor_available": request.app.state.image_editor is not None,
             "error": error,
         },
@@ -358,32 +344,25 @@ def create_post_bundle(
     _admin: Annotated[str, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
     csrf_token: Annotated[str, Form()] = "",
+    component_selection: Annotated[str, Form()] = "",
+    include_caption: Annotated[str, Form()] = "",
+    include_image: Annotated[str, Form()] = "",
+    include_voice: Annotated[str, Form()] = "",
 ):
     validate_csrf(request, csrf_token)
     service = PublishingService(
         PublishingRepository(db),
         request.app.state.settings.upload_dir,
         request.app.state.platform_adapters,
-        require_edited_image=request.app.state.image_editor is not None,
     )
     try:
-        control = service.control()
-        edited_image = EditedImageRepository(db).for_draft(draft_id)
-        if (
-            control.mode == "automatic"
-            and request.app.state.image_editor is not None
-            and edited_image is None
-        ):
-            draft = _content_service(request, db).get(draft_id)
-            _generate_and_store_edited_image(
-                draft_id,
-                request,
-                db,
-                mode="studio",
-                background_style="adaptive_studio",
-                overlay_text=draft.product.name,
-            )
-        service.create_bundle(draft_id)
+        explicit_selection = component_selection == "1"
+        service.create_bundle(
+            draft_id,
+            include_caption=not explicit_selection or include_caption == "1",
+            include_image=not explicit_selection or include_image == "1",
+            include_voice=not explicit_selection or include_voice == "1",
+        )
     except BundleInputError as exc:
         return _render_detail(request, db, draft_id, error=str(exc), status_code=422)
     except ContentNotFound as exc:
@@ -435,13 +414,9 @@ def generate_edited_image(
     except ContentNotFound as exc:
         raise HTTPException(status_code=404, detail="Content draft not found") from exc
     except (ImageEditorError, InvalidStoredImagePath) as exc:
-        return _render_detail(
-            request, db, draft_id, error=str(exc), status_code=503
-        )
+        return _render_detail(request, db, draft_id, error=str(exc), status_code=503)
     except ValueError as exc:
-        return _render_detail(
-            request, db, draft_id, error=str(exc), status_code=422
-        )
+        return _render_detail(request, db, draft_id, error=str(exc), status_code=422)
     return RedirectResponse(
         f"/admin/content/{draft_id}?image_saved=1#image-studio",
         status_code=303,
@@ -467,9 +442,7 @@ def private_edited_image(
         media_type=asset.mime_type,
         headers={
             "Content-Disposition": (
-                f'attachment; filename="edited-product-{draft_id}.png"'
-                if download
-                else "inline"
+                f'attachment; filename="edited-product-{draft_id}.png"' if download else "inline"
             ),
         },
     )
@@ -624,9 +597,7 @@ def private_voice(
         headers={
             "Accept-Ranges": "bytes",
             "Content-Disposition": (
-                f'attachment; filename="voice-{draft_id}{path.suffix}"'
-                if download
-                else "inline"
+                f'attachment; filename="voice-{draft_id}{path.suffix}"' if download else "inline"
             ),
         },
     )

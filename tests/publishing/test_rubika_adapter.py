@@ -6,12 +6,15 @@ from app.publishing.models import PostBundle
 from app.publishing.rubika import RubikaAdapter
 
 
-def _bundle(tmp_path, *, caption="معرفی محصول", voice=None, voice_mime=None):
+def _bundle(
+    tmp_path, *, caption="معرفی محصول", image_enabled=True, voice=None, voice_mime=None
+):
     bundle_key = "bundle-rubika-test"
     directory = tmp_path / "private" / "bundles" / bundle_key
     directory.mkdir(parents=True, exist_ok=True)
-    image = directory / "image.png"
-    image.write_bytes(b"valid-image-fixture")
+    image = directory / "image.png" if image_enabled else None
+    if image is not None:
+        image.write_bytes(b"valid-image-fixture")
     voice_path = None
     if voice is not None:
         voice_path = directory / voice[0]
@@ -20,10 +23,10 @@ def _bundle(tmp_path, *, caption="معرفی محصول", voice=None, voice_mime
         bundle_key=bundle_key,
         content_draft_id=1,
         caption_snapshot=caption,
-        image_relative_path=image.relative_to(tmp_path).as_posix(),
-        image_mime_type="image/png",
-        image_size_bytes=image.stat().st_size,
-        image_sha256="0" * 64,
+        image_relative_path=image.relative_to(tmp_path).as_posix() if image else None,
+        image_mime_type="image/png" if image else None,
+        image_size_bytes=image.stat().st_size if image else None,
+        image_sha256="0" * 64 if image else None,
         voice_relative_path=(
             voice_path.relative_to(tmp_path).as_posix() if voice_path else None
         ),
@@ -79,6 +82,79 @@ def test_rubika_uploads_image_then_sends_caption_to_channel(tmp_path):
     assert len(requests) == 3
     assert requests[0].url.path == "/v3/rubika-test-token/requestSendFile"
     assert requests[2].url.path == "/v3/rubika-test-token/sendFile"
+
+
+def test_rubika_sends_text_without_requesting_a_file_upload(tmp_path):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        assert json.loads(request.content) == {
+            "chat_id": "channel-chat-id",
+            "text": "معرفی محصول",
+        }
+        return httpx.Response(
+            200, request=request, json=_success({"message_id": "message-text"})
+        )
+
+    adapter = RubikaAdapter(
+        bot_token="rubika-test-token",
+        upload_root=tmp_path,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    result = adapter.send(
+        _bundle(tmp_path, image_enabled=False), "channel-chat-id", "rubika-text"
+    )
+
+    assert result.ok is True
+    assert result.external_message_ids == ["message-text"]
+    assert requests[0].url.path.endswith("/sendMessage")
+
+
+def test_rubika_sends_voice_only_as_a_file(tmp_path):
+    methods = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        method = request.url.path.rsplit("/", 1)[-1]
+        methods.append(method if request.url.host != "upload.rubika.ir" else "upload")
+        if method == "requestSendFile":
+            assert json.loads(request.content) == {"type": "File"}
+            return httpx.Response(
+                200,
+                request=request,
+                json=_success({"upload_url": "https://upload.rubika.ir/voice"}),
+            )
+        if request.url.host == "upload.rubika.ir":
+            return httpx.Response(
+                200, request=request, json=_success({"file_id": "voice-file"})
+            )
+        assert json.loads(request.content) == {
+            "chat_id": "channel-chat-id",
+            "file_id": "voice-file",
+        }
+        return httpx.Response(
+            200, request=request, json=_success({"message_id": "voice-message"})
+        )
+
+    adapter = RubikaAdapter(
+        bot_token="rubika-test-token",
+        upload_root=tmp_path,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    bundle = _bundle(
+        tmp_path,
+        caption="",
+        image_enabled=False,
+        voice=("voice.webm", b"\x1aE\xdf\xa3voice"),
+        voice_mime="audio/webm",
+    )
+
+    result = adapter.send(bundle, "channel-chat-id", "rubika-voice-only")
+
+    assert result.ok is True
+    assert result.external_message_ids == ["voice-message"]
+    assert methods == ["requestSendFile", "upload", "sendFile"]
 
 
 def test_rubika_preserves_webm_voice_as_file_after_main_post(tmp_path):
