@@ -156,10 +156,10 @@ def test_openai_provider_rejects_non_completed_response():
         provider.generate(content_request())
 
 
-def test_openai_provider_rejects_inferred_audience_and_quality_claims():
+def test_openai_provider_rejects_sensitive_claims_missing_from_admin_input():
     unsupported = _valid_generated_content()
-    unsupported["body"] = "این محصول یک گزینه مطمئن برای پروژه شماست."
-    unsupported["benefits"] = ["مناسب کابینت‌سازان حرفه‌ای"]
+    unsupported["body"] = "این محصول با ضمانت ویژه عرضه می‌شود."
+    unsupported["benefits"] = ["تخفیف ویژه سفارش"]
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=_response_payload(unsupported), request=request)
@@ -172,6 +172,45 @@ def test_openai_provider_rejects_inferred_audience_and_quality_claims():
 
     with pytest.raises(ContentProviderInvalidResponse, match="ادعای تأییدنشده"):
         provider.generate(content_request())
+
+
+def test_openai_provider_allows_normal_marketing_word_suitable():
+    content = _valid_generated_content()
+    content["body"] = "این طراحی برای فضای سخنرانی مناسب است."
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_response_payload(content), request=request)
+
+    provider = OpenAIContentProvider(
+        api_key="sk-test-not-a-real-secret",
+        model="gpt-test-model",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    generated = provider.generate(content_request())
+
+    assert "مناسب" in generated.body
+
+
+def test_openai_provider_treats_manager_brief_as_approved_information():
+    content = _valid_generated_content()
+    content["body"] = "این محصول با ضمانت یک‌ساله معرفی می‌شود."
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_response_payload(content), request=request)
+
+    provider = OpenAIContentProvider(
+        api_key="sk-test-not-a-real-secret",
+        model="gpt-test-model",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    approved_request = content_request().model_copy(
+        update={"user_brief": "محصول ضمانت یک‌ساله دارد."}
+    )
+
+    generated = provider.generate(approved_request)
+
+    assert "ضمانت" in generated.body
 
 
 def test_openai_provider_retries_once_when_first_response_has_unverified_claim():
