@@ -14,18 +14,34 @@
     <section class="panel form-card">
       <div class="form-card-heading"><span class="step-number">۱</span><div><h2>انتخاب محصول و هدف</h2><p>اطلاعات اصلی مستقیماً از کاتالوگ خوانده می‌شود.</p></div></div>
       <div class="field-grid">
-        <div class="field"><label for="product-id">محصول <span>*</span></label><select id="product-id" name="product_id" required>{% for product in products %}<option value="{{ product.id }}" {{ 'selected' if product.id == selected_product_id else '' }}>{{ product.name }} — {{ product.price | price_fa }} تومان</option>{% endfor %}</select></div>
+        <div class="field"><label for="product-id">محصول <span>*</span></label><select id="product-id" name="product_id" required>{% for product in products %}<option value="{{ product.id }}" {{ 'selected' if product.id == selected_product_id else '' }}>{{ product.name }}</option>{% endfor %}</select></div>
         <div class="field"><label for="requested-angle">زاویه محتوا</label><select id="requested-angle" name="requested_angle"><option value="product_intro" {{ 'selected' if values.requested_angle == 'product_intro' else '' }}>معرفی محصول</option><option value="educational" {{ 'selected' if values.requested_angle == 'educational' else '' }}>آموزشی</option><option value="faq" {{ 'selected' if values.requested_angle == 'faq' else '' }}>پرسش رایج</option><option value="problem_solution" {{ 'selected' if values.requested_angle == 'problem_solution' else '' }}>مسئله و راه‌حل</option><option value="trust" {{ 'selected' if values.requested_angle == 'trust' else '' }}>اعتمادسازی</option><option value="order_guide" {{ 'selected' if values.requested_angle == 'order_guide' else '' }}>راهنمای سفارش</option></select></div>
       </div>
     </section>
-    <section class="panel form-card">
-      <div class="form-card-heading"><span class="step-number">۲</span><div><h2>نکته ویژه این پست (اختیاری)</h2><p>فقط اگر می‌خواهید روی موضوع خاصی تأکید شود، یک جمله کوتاه بنویسید.</p></div></div>
-      <div class="field"><label for="user-brief">تأکید این پست</label><textarea id="user-brief" name="user_brief" rows="3" maxlength="500" placeholder="مثلاً روی امکان سفارشی‌سازی برای پروژه‌های نئوکلاسیک تأکید شود.">{{ values.user_brief | default('') }}</textarea><small>اگر خالی بماند، هوش مصنوعی بر اساس محصول، زاویه انتخاب‌شده و الگوهای تأییدشده قبلی متن را کامل می‌سازد. ویژگی تأییدنشده، تخفیف یا گارانتی حدس زده نمی‌شود.</small></div>
+    <section class="panel form-card" data-content-mode-form>
+      <div class="form-card-heading"><span class="step-number">۲</span><div><h2>روش آماده‌سازی متن</h2><p>یا چند نکته به هوش مصنوعی بدهید، یا متن کامل خودتان را بدون بازنویسی وارد کنید.</p></div></div>
+      {% set selected_mode = values.content_mode | default('ai') %}
+      <div class="content-mode-options" role="radiogroup" aria-label="روش آماده‌سازی متن">
+        <label class="content-mode-card">
+          <input type="radio" name="content_mode" value="ai" {{ 'checked' if selected_mode == 'ai' else '' }}>
+          <span><strong>تولید با هوش مصنوعی</strong><small>شما ۲ تا ۳ خط توضیح می‌دهید؛ سامانه یک کپشن تازه با ایموجی و هشتگ مرتبط می‌سازد.</small></span>
+        </label>
+        <label class="content-mode-card">
+          <input type="radio" name="content_mode" value="manual" {{ 'checked' if selected_mode == 'manual' else '' }}>
+          <span><strong>متن کامل خودم</strong><small>متن شما بدون بازنویسی ذخیره می‌شود؛ فقط راه ارتباط با ادمین و هشتگ‌های برند به انتهای آن افزوده می‌شود.</small></span>
+        </label>
+      </div>
+      <div class="content-mode-panel" data-content-mode-panel="ai">
+        <div class="field"><label for="ai-brief">توضیح کوتاه شما <span>*</span></label><textarea id="ai-brief" name="ai_brief" rows="4" maxlength="500" placeholder="در ۲ تا ۳ خط بگویید درباره محصول چه نکاتی مهم است و متن روی چه موضوعی تمرکز کند.">{{ values.ai_brief | default('') }}</textarea><small>این متن عیناً منتشر نمی‌شود؛ هوش مصنوعی آن را با اطلاعات قطعی همین محصول به یک کپشن کامل تبدیل می‌کند.</small></div>
+      </div>
+      <div class="content-mode-panel" data-content-mode-panel="manual" hidden>
+        <div class="field"><label for="manual-caption">متن کامل برای انتشار <span>*</span></label><textarea id="manual-caption" name="manual_caption" rows="8" maxlength="3500" placeholder="متن نهایی موردنظر خودتان را دقیقاً همان‌طور که باید منتشر شود وارد کنید.">{{ values.manual_caption | default('') }}</textarea><small>سامانه متن را بازنویسی نمی‌کند؛ فقط پیام استعلام قیمت، شناسه ادمین و هشتگ‌ها را اضافه می‌کند.</small></div>
+      </div>
     </section>
-    <div class="form-actions"><a class="button button-secondary" href="/admin/products">بازگشت</a><button class="button button-primary" type="submit">{{ 'ساخت پیش‌نویس با هوش مصنوعی' if provider_name[:7] == 'openai:' else 'ساخت پیش‌نویس آزمایشی' }}</button></div>
+    <div class="form-actions"><a class="button button-secondary" href="/admin/products">بازگشت</a><button class="button button-primary" type="submit" data-content-mode-submit>ساخت پیش‌نویس با هوش مصنوعی</button></div>
   </form>
   {% else %}
-  <section class="empty-state"><span class="empty-icon" aria-hidden="true">＋</span><h2>هنوز محصول فعالی ندارید</h2><p>برای شروع تولید محتوا، ابتدا یک محصول فعال همراه با قیمت و توضیحات ثبت کنید.</p><a class="button button-primary" href="/admin/products/new">افزودن محصول</a></section>
+  <section class="empty-state"><span class="empty-icon" aria-hidden="true">＋</span><h2>هنوز محصول فعالی ندارید</h2><p>برای شروع تولید محتوا، ابتدا یک محصول فعال همراه با تصویر و توضیحات ثبت کنید.</p><a class="button button-primary" href="/admin/products/new">افزودن محصول</a></section>
   {% endif %}
 </main>
 {% endblock %}

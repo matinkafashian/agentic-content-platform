@@ -1,4 +1,4 @@
-from sqlalchemy import case, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.content.models import ContentDraft, DraftStatus
@@ -61,6 +61,17 @@ class ContentRepository:
             ContentDraft.created_at.desc(),
         ).limit(limit)
         return list(self.session.scalars(statement))
+
+    def approved_caption_count(
+        self, *, exclude_series_key: str | None = None
+    ) -> int:
+        statement = select(func.count(ContentDraft.id)).where(
+            ContentDraft.status == DraftStatus.APPROVED.value,
+            ContentDraft.final_caption != "",
+        )
+        if exclude_series_key is not None:
+            statement = statement.where(ContentDraft.series_key != exclude_series_key)
+        return int(self.session.scalar(statement) or 0)
 
     def commit(self) -> None:
         self.session.commit()

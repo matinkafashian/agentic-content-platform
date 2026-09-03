@@ -3,6 +3,7 @@ from io import BytesIO
 
 from PIL import Image
 
+from app.content.models import ContentDraft
 from app.content.openai_provider import ContentProviderUnavailable
 
 
@@ -18,9 +19,21 @@ class UnavailableContentProvider:
 class SuccessfulImageEditor:
     name = "openai:gpt-image-2"
 
-    def edit(self, *, source, filename, mime_type, background_style):
+    def __init__(self):
+        self.requests = []
+
+    def edit(self, *, source, filename, mime_type, background_style, **instructions):
         from app.media.images import validate_image
 
+        self.requests.append(
+            {
+                "source": source,
+                "filename": filename,
+                "mime_type": mime_type,
+                "background_style": background_style,
+                **instructions,
+            }
+        )
         output = BytesIO()
         Image.new("RGB", (64, 64), "teal").save(output, format="PNG")
         return validate_image(output.getvalue(), "edited.png", "image/png")
@@ -32,7 +45,9 @@ def generate_content(client, csrf_token: str, product_id: int):
         data={
             "csrf_token": csrf_token,
             "product_id": str(product_id),
-            "user_brief": "این مدل برای پروژه نئوکلاسیک معرفی شود و مشخصات واقعی برجسته شود.",
+            "content_mode": "ai",
+            "ai_brief": "این مدل برای پروژه نئوکلاسیک معرفی شود و مشخصات واقعی برجسته شود.",
+            "manual_caption": "",
             "requested_angle": "product_intro",
         },
         follow_redirects=False,
@@ -66,6 +81,34 @@ def test_admin_generates_content_from_short_brief(
     assert "@hayka_poshtibani" in preview.text
     assert "#درب_ممبران" in preview.text
     assert product.description == original_description
+
+
+def test_admin_uses_manual_caption_without_calling_openai(
+    authenticated_client, csrf_token, product
+):
+    authenticated_client.app.state.content_provider = UnavailableContentProvider()
+    manual_text = "این متن کامل مدیر است و باید دقیقاً بدون بازنویسی در کپشن باقی بماند."
+
+    response = authenticated_client.post(
+        "/admin/content",
+        data={
+            "csrf_token": csrf_token,
+            "product_id": str(product.id),
+            "content_mode": "manual",
+            "ai_brief": "",
+            "manual_caption": manual_text,
+            "requested_angle": "product_intro",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    preview = authenticated_client.get(response.headers["location"])
+    assert "متن دستی — بدون بازنویسی هوش مصنوعی" in preview.text
+    with authenticated_client.app.state.session_factory() as session:
+        draft = session.get(ContentDraft, draft_id_from(response))
+        assert draft.provider_name == "manual"
+        assert draft.final_caption.startswith(f"{manual_text}\n\n")
 
 
 def test_admin_edits_regenerates_and_approves_content(
@@ -127,7 +170,8 @@ def test_content_generation_rejects_missing_csrf(authenticated_client, product):
         "/admin/content",
         data={
             "product_id": str(product.id),
-            "user_brief": "این متن بدون توکن امنیتی نباید پذیرفته شود.",
+            "content_mode": "ai",
+            "ai_brief": "این متن بدون توکن امنیتی نباید پذیرفته شود.",
             "requested_angle": "product_intro",
         },
     )
@@ -217,11 +261,17 @@ def test_admin_generates_private_edited_image_without_changing_original(
         session.commit()
     created = generate_content(authenticated_client, csrf_token, product.id)
     draft_id = draft_id_from(created)
-    authenticated_client.app.state.image_editor = SuccessfulImageEditor()
+    editor = SuccessfulImageEditor()
+    authenticated_client.app.state.image_editor = editor
 
     generated = authenticated_client.post(
         f"/admin/content/{draft_id}/image/generate",
-        data={"csrf_token": csrf_token, "background_style": "adaptive_studio"},
+        data={
+            "csrf_token": csrf_token,
+            "image_mode": "studio",
+            "background_style": "adaptive_studio",
+            "overlay_text": "زیبایی در جزئیات است",
+        },
         follow_redirects=False,
     )
     preview = authenticated_client.get(f"/admin/content/{draft_id}/image")
@@ -234,6 +284,73 @@ def test_admin_generates_private_edited_image_without_changing_original(
     assert preview.headers["content-type"] == "image/png"
     assert preview.content != png_upload
     assert original_path.read_bytes() == png_upload
+    assert editor.requests[0]["mode"] == "studio"
+    assert editor.requests[0]["overlay_text"] == "زیبایی در جزئیات است"
+    assert editor.requests[0]["source"] == png_upload
+
+
+def test_cinematic_image_mode_forwards_topic_and_message(
+    authenticated_client, csrf_token, product, png_upload
+):
+    upload_root = authenticated_client.app.state.settings.upload_dir
+    original_relative = f"products/{product.id}/original/cinematic-source.png"
+    original_path = upload_root / original_relative
+    original_path.parent.mkdir(parents=True, exist_ok=True)
+    original_path.write_bytes(png_upload)
+    with authenticated_client.app.state.session_factory() as session:
+        stored_product = session.get(type(product), product.id)
+        stored_product.primary_image_path = original_relative
+        session.commit()
+    draft_id = draft_id_from(
+        generate_content(authenticated_client, csrf_token, product.id)
+    )
+    editor = SuccessfulImageEditor()
+    authenticated_client.app.state.image_editor = editor
+
+    response = authenticated_client.post(
+        f"/admin/content/{draft_id}/image/generate",
+        data={
+            "csrf_token": csrf_token,
+            "image_mode": "cinematic",
+            "topic": "خم واقعی",
+            "message": "از دل چوب متولد می‌شود",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert editor.requests[0]["mode"] == "cinematic"
+    assert editor.requests[0]["topic"] == "خم واقعی"
+    assert editor.requests[0]["message"] == "از دل چوب متولد می‌شود"
+    assert editor.requests[0]["source"] == png_upload
+
+
+def test_studio_image_mode_requires_short_overlay_copy(
+    authenticated_client, csrf_token, product, png_upload
+):
+    upload_root = authenticated_client.app.state.settings.upload_dir
+    original_relative = f"products/{product.id}/original/no-copy.png"
+    original_path = upload_root / original_relative
+    original_path.parent.mkdir(parents=True, exist_ok=True)
+    original_path.write_bytes(png_upload)
+    with authenticated_client.app.state.session_factory() as session:
+        stored_product = session.get(type(product), product.id)
+        stored_product.primary_image_path = original_relative
+        session.commit()
+    draft_id = draft_id_from(
+        generate_content(authenticated_client, csrf_token, product.id)
+    )
+    editor = SuccessfulImageEditor()
+    authenticated_client.app.state.image_editor = editor
+
+    response = authenticated_client.post(
+        f"/admin/content/{draft_id}/image/generate",
+        data={"csrf_token": csrf_token, "image_mode": "studio"},
+    )
+
+    assert response.status_code == 422
+    assert "متن کوتاه روی تصویر الزامی است" in response.text
+    assert editor.requests == []
 
 
 def test_edited_image_requires_admin_session(
@@ -254,7 +371,12 @@ def test_edited_image_requires_admin_session(
     authenticated_client.app.state.image_editor = SuccessfulImageEditor()
     authenticated_client.post(
         f"/admin/content/{draft_id}/image/generate",
-        data={"csrf_token": csrf_token, "background_style": "adaptive_studio"},
+        data={
+            "csrf_token": csrf_token,
+            "image_mode": "studio",
+            "background_style": "adaptive_studio",
+            "overlay_text": "معرفی محصول",
+        },
     )
     client.cookies.clear()
 
@@ -273,7 +395,12 @@ def test_image_generation_returns_not_found_for_unknown_draft(
 
     response = authenticated_client.post(
         "/admin/content/99999/image/generate",
-        data={"csrf_token": csrf_token, "background_style": "adaptive_studio"},
+        data={
+            "csrf_token": csrf_token,
+            "image_mode": "studio",
+            "background_style": "adaptive_studio",
+            "overlay_text": "معرفی محصول",
+        },
     )
 
     assert response.status_code == 404

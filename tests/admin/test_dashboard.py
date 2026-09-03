@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from app.catalog.models import Product
 
 
@@ -7,8 +5,8 @@ def test_dashboard_has_useful_phase_one_metrics(authenticated_client):
     with authenticated_client.app.state.session_factory() as session:
         session.add_all(
             [
-                Product(name="محصول فعال", price=Decimal("100"), active=True),
-                Product(name="محصول غیرفعال", price=Decimal("200"), active=False),
+                Product(name="محصول فعال", active=True),
+                Product(name="محصول غیرفعال", active=False),
             ]
         )
         session.commit()
@@ -35,6 +33,10 @@ def test_dashboard_static_assets_are_served(authenticated_client):
 
     assert stylesheet.status_code == 200
     assert "--color-accent" in stylesheet.text
+    assert ".workflow-overview" in stylesheet.text
+    assert ".workflow-section-summary" in stylesheet.text
+    assert "min-height: 2.75rem" in stylesheet.text
+    assert "scroll-behavior: smooth" not in stylesheet.text
     assert script.status_code == 200
     assert "data-nav-toggle" in script.text
     assert persian_font.status_code == 200

@@ -27,11 +27,6 @@
             <textarea id="description" name="description" rows="5">{{ values.description | default('') }}</textarea>
           </div>
           <div class="field">
-            <label for="price">قیمت (تومان) <span aria-hidden="true">*</span></label>
-            <input id="price" name="price" inputmode="decimal" value="{{ values.price | default('') }}" required>
-            {% if errors.price %}<p class="field-error" role="alert">{{ errors.price }}</p>{% endif %}
-          </div>
-          <div class="field">
             <label for="availability">وضعیت موجودی</label>
             <select id="availability" name="availability">
               <option value="available" {{ 'selected' if values.availability | default('available') == 'available' else '' }}>موجود</option>

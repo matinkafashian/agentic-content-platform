@@ -4,34 +4,37 @@
 {% block content %}
 <main data-page="publishing">
   <section class="page-heading">
-    <div><span class="section-kicker">مرکز کنترل انتشار</span><h1>صف انتشار</h1><p>بسته‌های آماده را زمان‌بندی کنید و نتیجه هر تلاش را مستقل و قابل‌ردیابی ببینید.</p></div>
-    <form method="post" action="/admin/publishing/run-due"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-secondary" type="submit">بررسی همین حالا</button></form>
+    <div><span class="section-kicker">مرکز کنترل انتشار</span><h1>انتشار و زمان‌بندی</h1><p>ارسال‌های انجام‌شده و پست‌های زمان‌بندی‌شده را اینجا ببینید.</p></div>
   </section>
 
-  {% if mode_saved %}<div class="alert alert-success" role="status">حالت انتشار ذخیره شد.</div>{% endif %}
-  {% if scheduled %}<div class="alert alert-success" role="status">بسته با موفقیت زمان‌بندی شد.</div>{% endif %}
+  {% if mode_saved %}<div class="alert alert-success" role="status">روش تأیید محتوا اعمال شد؛ هیچ پستی ارسال نشد.</div>{% endif %}
+  {% if scheduled %}<div class="alert alert-warning" role="status"><strong>{{ scheduled | fa_digits }} ارسال در صف انتشار ثبت شد؛ هنوز ارسال نشده است.</strong> نتیجه نهایی هر پلتفرم را در فهرست «وضعیت ارسال‌ها» بررسی کنید.</div>{% endif %}
   {% if paused %}<div class="alert alert-warning" role="status">انتشار متوقف است؛ هیچ موردی تا فعال‌سازی دوباره ارسال نمی‌شود.</div>{% endif %}
   {% if processed %}<div class="alert alert-success" role="status">{{ processed | fa_digits }} مورد پردازش شد.</div>{% endif %}
+  {% if sent and immediate_publication %}<div class="alert alert-success" role="status"><strong>پست با موفقیت ارسال شد.</strong> نتیجه در وضعیت ارسال‌ها ثبت شده است.</div>{% endif %}
+  {% if send_failed and immediate_publication %}<div class="alert alert-error" role="alert"><strong>ارسال کامل نشد.</strong> {{ immediate_publication.safe_error_message or 'جزئیات خطا در وضعیت ارسال‌ها ثبت شده است.' }}</div>{% endif %}
+  {% if multi_success_labels %}<div class="alert alert-success" role="status"><strong>{{ multi_success_labels | join(' و ') }} با موفقیت ارسال شد.</strong> نتیجه هر پلتفرم جداگانه ثبت شده است.</div>{% endif %}
+  {% if multi_failed_labels %}<div class="alert alert-error" role="alert"><strong>ارسال {{ multi_failed_labels | join(' و ') }} انجام نشد.</strong> جزئیات خطا را در ردیف همان پلتفرم بررسی کنید؛ ارسال‌های موفق تکرار نمی‌شوند.</div>{% endif %}
 
   <section class="panel publishing-control">
-    <div class="panel-heading"><div><span class="section-kicker">رفتار سامانه</span><h2>حالت انتشار</h2></div><span class="mode-badge mode-{{ control.mode }}">{{ mode_labels[control.mode] }}</span></div>
+    <div class="panel-heading"><div><span class="section-kicker">تنظیم ساده</span><h2>روش تأیید محتوا</h2><p>این گزینه فقط مشخص می‌کند محتوا چگونه تأیید شود؛ با تغییر این گزینه هیچ پستی ارسال نمی‌شود.</p></div><span class="mode-badge mode-{{ control.mode }}">{{ mode_labels[control.mode] }}</span></div>
     <form method="post" action="/admin/publishing/mode" class="mode-options">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label><input type="radio" name="mode" value="manual_approval" {{ 'checked' if control.mode == 'manual_approval' else '' }}><span><strong>تأیید دستی</strong><small>فقط نسخه‌ای که مدیر تأیید کرده بسته‌بندی می‌شود.</small></span></label>
-      <label><input type="radio" name="mode" value="automatic" {{ 'checked' if control.mode == 'automatic' else '' }}><span><strong>خودکار</strong><small>نسخه سالم هنگام بسته‌بندی به‌طور خودکار تأیید می‌شود.</small></span></label>
+      <label><input type="radio" name="mode" value="manual_approval" {{ 'checked' if control.mode == 'manual_approval' else '' }}><span><strong>تأیید محتوا توسط مدیر</strong><small>پیش از ساخت بسته نهایی، شما متن را بررسی و تأیید می‌کنید.</small></span></label>
+      <label><input type="radio" name="mode" value="automatic" {{ 'checked' if control.mode == 'automatic' else '' }}><span><strong>تأیید خودکار هنگام ساخت بسته</strong><small>سامانه نسخه سالم را هنگام ساخت بسته تأیید می‌کند؛ آن را ارسال نمی‌کند.</small></span></label>
       <label><input type="radio" name="mode" value="paused" {{ 'checked' if control.mode == 'paused' else '' }}><span><strong>توقف کامل</strong><small>صف حفظ می‌شود ولی هیچ ارسال تازه‌ای شروع نمی‌شود.</small></span></label>
-      <button class="button button-primary" type="submit">ذخیره حالت</button>
+      <button class="button button-primary" type="submit">اعمال روش تأیید</button>
     </form>
   </section>
 
   <section class="panel publication-queue">
-    <div class="panel-heading"><div><span class="section-kicker">آخرین فعالیت‌ها</span><h2>نتیجه ارسال‌ها</h2></div><small>منطقه زمانی پنل: {{ timezone }}</small></div>
-    <div class="sandbox-notice"><strong>شبیه‌ساز داخلی فعال است</strong><span>در این مرحله هیچ پیامی به کانال واقعی فرستاده نمی‌شود؛ همین قرارداد در مرحله بعد به تلگرام متصل خواهد شد.</span></div>
+    <div class="panel-heading"><div><span class="section-kicker">آخرین فعالیت‌ها</span><h2>وضعیت ارسال‌ها</h2></div><small>منطقه زمانی پنل: {{ timezone }}</small></div>
+    {% if active_real_platform_labels %}<div class="sandbox-notice"><strong>اتصال واقعی {{ active_real_platform_labels | join('، ') }} فعال است</strong><span>ارسال آزمایشی بدون شبکه نیز در دسترس می‌ماند؛ پلتفرم و مقصد هر بسته را بررسی کنید.</span></div>{% else %}<div class="sandbox-notice"><strong>شبیه‌ساز داخلی فعال است</strong><span>توکن پلتفرم‌های واقعی هنوز تنظیم نشده و هیچ پیامی به کانال واقعی فرستاده نمی‌شود.</span></div>{% endif %}
     {% if publications %}
       <div class="publication-list">
       {% for item in publications %}
         <article class="publication-row status-{{ item.status }}">
-          <div><strong>{{ item.bundle.content_draft.product.name }}</strong><small>{{ item.destination }} · {{ item.platform }}</small></div>
+          <div><strong>{{ item.bundle.content_draft.product.name }}</strong><small>{{ item.destination }} · {{ platform_labels.get(item.platform, item.platform) }}</small></div>
           <div class="publication-meta"><span class="status-pill">{{ status_labels[item.status] }}</span><small>تلاش {{ item.attempt_count | fa_digits }} از {{ item.max_attempts | fa_digits }}</small></div>
           <time>{{ publication_times[item.id] | fa_digits }}</time>
           {% if item.safe_error_message %}<p class="publication-error">{{ item.safe_error_message }}</p>{% endif %}

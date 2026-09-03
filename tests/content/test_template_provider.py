@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from app.content.providers import TemplateContentProvider, compose_caption
 from app.content.schemas import BrandFacts, ContentGenerationRequest, ProductFacts
 
@@ -9,7 +7,6 @@ def content_request() -> ContentGenerationRequest:
         product=ProductFacts(
             name="درب ممبران مدل آریا",
             description="طراحی نئوکلاسیک با خطوط عمودی",
-            price=Decimal("12500000"),
             availability="available",
             shipping_info="ارسال به سراسر ایران",
             attributes={"متریال": "MDF", "رنگ": "سفید"},
@@ -43,7 +40,9 @@ def test_template_provider_adds_structure_without_unapproved_claims():
     assert "تخفیف" not in caption
     assert "@hayka_poshtibani" in caption
     assert "#درب_ممبران" in caption
-    assert "۱۲٬۵۰۰٬۰۰۰ تومان" in caption
+    assert "۱۲٬۵۰۰٬۰۰۰" not in caption
+    assert "💰 قیمت:" not in caption
+    assert "برای استعلام قیمت و ثبت سفارش، به ادمین پیام دهید" in caption
 
 
 def test_template_provider_is_deterministic_for_the_same_request():

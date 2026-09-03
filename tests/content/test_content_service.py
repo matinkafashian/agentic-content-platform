@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 import pytest
 
 from app.brand.repository import BrandRepository
@@ -37,6 +35,13 @@ class CapturingProvider:
         )
 
 
+class FailingIfCalledProvider:
+    name = "must-not-run"
+
+    def generate(self, request):
+        raise AssertionError("manual content must bypass the AI provider")
+
+
 @pytest.fixture
 def content_service(db_session):
     BrandService(BrandRepository(db_session)).get_or_create()
@@ -53,7 +58,6 @@ def product(db_session):
     item = Product(
         name="درب ممبران مدل آریا",
         description="طراحی نئوکلاسیک با خطوط عمودی",
-        price=Decimal("12500000"),
         availability="available",
         shipping_info="ارسال به سراسر ایران",
         attributes={"متریال": "MDF"},
@@ -169,15 +173,51 @@ def test_generate_rejects_inactive_or_missing_product(content_service, product):
         )
 
 
-def test_generate_rejects_blank_brief(content_service, product):
-    generated = content_service.generate(
-        product.id, user_brief="  ", requested_angle="product_intro"
+def test_ai_generation_rejects_blank_brief(content_service, product):
+    with pytest.raises(ContentInputError, match="توضیح کوتاه"):
+        content_service.generate(
+            product.id, user_brief="  ", requested_angle="product_intro"
+        )
+
+
+def test_manual_content_preserves_text_and_bypasses_ai(
+    db_session, product
+):
+    BrandService(BrandRepository(db_session)).get_or_create()
+    service = ContentService(
+        ContentRepository(db_session),
+        ProductRepository(db_session),
+        BrandRepository(db_session),
+        FailingIfCalledProvider(),
+    )
+    manual_text = "این متن کامل من است و باید بدون هیچ بازنویسی منتشر شود."
+
+    draft = service.generate(
+        product.id,
+        user_brief=manual_text,
+        requested_angle="product_intro",
+        content_mode="manual",
     )
 
-    assert generated.user_brief == ""
+    assert draft.provider_name == "manual"
+    assert draft.provider_payload == {"content_mode": "manual"}
+    assert draft.final_caption.startswith(f"{manual_text}\n\n")
+    assert "برای استعلام قیمت و ثبت سفارش، به ادمین پیام دهید:" in draft.final_caption
+    assert "@hayka_poshtibani" in draft.final_caption
+    assert "#درب_ممبران" in draft.final_caption
 
 
-def test_generation_receives_recent_approved_captions_as_style_examples(
+def test_manual_content_rejects_too_short_text(content_service, product):
+    with pytest.raises(ContentInputError, match="متن کامل"):
+        content_service.generate(
+            product.id,
+            user_brief="کوتاه",
+            requested_angle="product_intro",
+            content_mode="manual",
+        )
+
+
+def test_generation_does_not_use_style_examples_before_twenty_approvals(
     content_service, draft, db_session, product
 ):
     content_service.approve(draft.id)
@@ -191,12 +231,42 @@ def test_generation_receives_recent_approved_captions_as_style_examples(
 
     service.generate(
         product.id,
-        user_brief="",
+        user_brief="یک معرفی تازه و مستقل برای این محصول نوشته شود.",
         requested_angle="trust",
     )
 
     assert capture.request is not None
-    assert capture.request.style_examples == [draft.final_caption]
+    assert capture.request.style_examples == []
+
+
+def test_generation_uses_recent_approved_captions_after_twenty_approvals(
+    content_service, draft, db_session, product
+):
+    content_service.approve(draft.id)
+    for index in range(19):
+        approved = content_service.generate(
+            product.id,
+            user_brief=f"معرفی مستقل شماره {index + 1} برای تکمیل سابقه لحن.",
+            requested_angle="product_intro",
+        )
+        content_service.approve(approved.id)
+    capture = CapturingProvider()
+    service = ContentService(
+        ContentRepository(db_session),
+        ProductRepository(db_session),
+        BrandRepository(db_session),
+        capture,
+    )
+
+    service.generate(
+        product.id,
+        user_brief="یک معرفی تازه و مستقل برای این محصول نوشته شود.",
+        requested_angle="trust",
+    )
+
+    assert capture.request is not None
+    assert len(capture.request.style_examples) == 3
+    assert draft.final_caption not in capture.request.style_examples
 
 
 def test_unknown_draft_raises_content_not_found(content_service):

@@ -48,3 +48,39 @@ def test_redaction_does_not_consume_third_party_formatter_arguments():
 
     assert record.args == (23040,)
     assert record.color_message % record.args == "Started server process [23040]"
+
+
+def test_telegram_bot_token_is_redacted_from_third_party_request_url():
+    record = logging.LogRecord(
+        name="httpx",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg='HTTP Request: POST %s "HTTP/1.1 200 OK"',
+        args=("https://api.telegram.org/bot123456:private-token/sendPhoto",),
+        exc_info=None,
+    )
+
+    SecretRedactionFilter().filter(record)
+
+    rendered = record.getMessage()
+    assert "123456:private-token" not in rendered
+    assert "https://api.telegram.org/bot[REDACTED]/sendPhoto" in rendered
+
+
+def test_rubika_bot_token_is_redacted_from_third_party_request_url():
+    record = logging.LogRecord(
+        name="httpx",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg='HTTP Request: POST %s "HTTP/1.1 200 OK"',
+        args=("https://botapi.rubika.ir/v3/private-token/sendFile",),
+        exc_info=None,
+    )
+
+    SecretRedactionFilter().filter(record)
+
+    rendered = record.getMessage()
+    assert "private-token" not in rendered
+    assert "https://botapi.rubika.ir/v3/[REDACTED]/sendFile" in rendered

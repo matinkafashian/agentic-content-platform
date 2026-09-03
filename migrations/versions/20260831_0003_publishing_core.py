@@ -70,7 +70,8 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
         sa.CheckConstraint(
-            "status in ('scheduled','publishing','retry_scheduled','succeeded','failed','cancelled')",
+            "status in ('scheduled','publishing','retry_scheduled',"
+            "'succeeded','failed','cancelled')",
             name="ck_publications_status",
         ),
         sa.ForeignKeyConstraint(["bundle_id"], ["post_bundles.id"]),
@@ -103,4 +104,3 @@ def downgrade() -> None:
     op.drop_index("ix_post_bundles_bundle_key", table_name="post_bundles")
     op.drop_table("post_bundles")
     op.drop_table("publishing_controls")
-

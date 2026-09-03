@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 import pytest
 
 from app.catalog.models import Product
@@ -13,7 +11,6 @@ def content_draft(db_session):
     product = Product(
         name="درب ممبران مدل آریا",
         description="طراحی نئوکلاسیک",
-        price=Decimal("12500000"),
         availability="available",
         shipping_info="",
         attributes={},

@@ -30,7 +30,6 @@ class ProductFormData:
     csrf_token: str
     name: str
     description: str
-    price: str
     availability: str
     shipping_info: str
     tags: str
@@ -42,7 +41,6 @@ class ProductFormData:
         return {
             "name": self.name,
             "description": self.description,
-            "price": self.price,
             "availability": self.availability,
             "shipping_info": self.shipping_info,
             "tags": self.tags,
@@ -60,7 +58,6 @@ class ProductFormData:
         return {
             "name": self.name,
             "description": self.description,
-            "price": self.price,
             "availability": self.availability,
             "shipping_info": self.shipping_info,
             "attributes": attributes,
@@ -73,7 +70,6 @@ def parse_product_form(
     csrf_token: Annotated[str, Form()] = "",
     name: Annotated[str, Form()] = "",
     description: Annotated[str, Form()] = "",
-    price: Annotated[str, Form()] = "",
     availability: Annotated[str, Form()] = "available",
     shipping_info: Annotated[str, Form()] = "",
     tags: Annotated[str, Form()] = "",
@@ -85,7 +81,6 @@ def parse_product_form(
         csrf_token=csrf_token,
         name=name,
         description=description,
-        price=price,
         availability=availability,
         shipping_info=shipping_info,
         tags=tags,
@@ -99,7 +94,6 @@ def product_values(product: Product) -> dict[str, object]:
     return {
         "name": product.name,
         "description": product.description,
-        "price": product.price,
         "availability": product.availability,
         "shipping_info": product.shipping_info,
         "tags": "، ".join(product.tags),
@@ -111,7 +105,6 @@ def product_values(product: Product) -> dict[str, object]:
 def validation_errors(exc: ValidationError) -> dict[str, str]:
     labels = {
         "name": "نام محصول باید بین ۲ تا ۲۰۰ نویسه باشد",
-        "price": "قیمت باید عددی معتبر و بزرگ‌تر یا مساوی صفر باشد",
         "availability": "وضعیت موجودی معتبر نیست",
         "tags": "هشتگ‌های واردشده معتبر نیستند",
         "attributes": "ویژگی‌های محصول معتبر نیستند",

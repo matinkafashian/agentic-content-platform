@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from app.catalog.models import Product
 from app.content.models import ContentDraft, DraftStatus
 from app.media.models import MediaAsset
@@ -9,7 +7,6 @@ def test_media_asset_keeps_private_relative_path_and_voice_metadata(db_session):
     product = Product(
         name="میز کانتر",
         description="نمای شیاردار",
-        price=Decimal("25000000"),
         availability="available",
         shipping_info="",
         attributes={},

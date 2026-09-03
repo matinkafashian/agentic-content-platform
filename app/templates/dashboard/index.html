@@ -60,7 +60,7 @@
                 {% else %}
                   <span class="product-placeholder" aria-hidden="true">{{ product.name[:1] }}</span>
                 {% endif %}
-                <span class="recent-copy"><strong>{{ product.name }}</strong><small>{{ product.price | price_fa }} تومان</small></span>
+                <span class="recent-copy"><strong>{{ product.name }}</strong><small>{{ product.description or 'بدون توضیح' }}</small></span>
                 <span class="badge {{ 'badge-success' if product.active else 'badge-muted' }}">{{ 'فعال' if product.active else 'غیرفعال' }}</span>
               </a>
             </li>

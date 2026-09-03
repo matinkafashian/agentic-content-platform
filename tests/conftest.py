@@ -1,5 +1,4 @@
 import re
-from decimal import Decimal
 from io import BytesIO
 
 import pytest
@@ -31,7 +30,14 @@ def client(tmp_path, admin_credentials) -> TestClient:
         secret_key="test-secret-key-that-is-at-least-32-characters",
         admin_username=admin_credentials["username"],
         admin_password_hash=admin_credentials["password_hash"],
+        content_provider="template",
         openai_api_key=None,
+        telegram_bot_token=None,
+        telegram_default_destination="",
+        bale_bot_token=None,
+        bale_default_destination="",
+        rubika_bot_token=None,
+        rubika_default_destination="",
         publishing_worker_enabled=False,
         debug=True,
     )
@@ -97,7 +103,6 @@ def product(authenticated_client) -> Product:
         item = Product(
             name="درب ممبران مدل آریا",
             description="طراحی نئوکلاسیک با خطوط عمودی",
-            price=Decimal("12500000"),
             availability="available",
             shipping_info="ارسال به سراسر ایران",
             attributes={"متریال": "MDF"},

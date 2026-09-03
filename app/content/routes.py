@@ -16,6 +16,7 @@ from app.content.service import (
     ContentService,
     ContentStateError,
 )
+from app.content.workflow import build_content_workflow
 from app.core.database import get_db
 from app.core.security import ensure_csrf_token, validate_csrf
 from app.core.templating import templates
@@ -25,11 +26,11 @@ from app.media.image_edit_service import (
     InvalidStoredImagePath,
     resolve_product_original_path,
 )
-from app.media.openai_image_editor import ImageEditorError
+from app.media.openai_image_editor import ImageEditorError, build_product_edit_prompt
 from app.media.voice import InvalidVoice, validate_voice
 from app.media.voice_service import VoiceRepository, VoiceService
 from app.publishing.repository import PublishingRepository
-from app.publishing.routes import MODE_LABELS
+from app.publishing.routes import MODE_LABELS, PLATFORM_LABELS
 from app.publishing.service import BundleInputError, PublishingService
 
 router = APIRouter(prefix="/admin/content", tags=["content"])
@@ -67,7 +68,11 @@ def _generate_and_store_edited_image(
     request: Request,
     db: Session,
     *,
+    mode: str,
     background_style: str,
+    overlay_text: str = "",
+    topic: str = "",
+    message: str = "",
 ):
     editor = request.app.state.image_editor
     if editor is None:
@@ -91,11 +96,22 @@ def _generate_and_store_edited_image(
     }.get(source_path.suffix.lower())
     if mime_type is None:
         raise ValueError("فرمت تصویر اصلی برای ویرایش پشتیبانی نمی‌شود")
+    build_product_edit_prompt(
+        mode=mode,
+        background_style=background_style,
+        overlay_text=overlay_text,
+        topic=topic,
+        message=message,
+    )
     edited = editor.edit(
         source=source_path.read_bytes(),
         filename=source_path.name,
         mime_type=mime_type,
+        mode=mode,
         background_style=background_style,
+        overlay_text=overlay_text,
+        topic=topic,
+        message=message,
     )
     return _image_service(request, db).attach_or_replace(draft_id, edited)
 
@@ -118,7 +134,6 @@ def _render_new(
             "csrf_token": ensure_csrf_token(request),
             "current_page": "content",
             "products": products,
-            "provider_name": request.app.state.content_provider.name,
             "selected_product_id": selected_product_id,
             "values": values or {"requested_angle": "product_intro"},
             "error": error,
@@ -136,6 +151,9 @@ def _render_detail(
     voice_saved: bool = False,
     image_saved: bool = False,
     bundle_saved: bool = False,
+    approved: bool = False,
+    rejected: bool = False,
+    caption_saved: bool = False,
     status_code: int = 200,
 ):
     service = _content_service(request, db)
@@ -149,6 +167,36 @@ def _render_detail(
     publishing_control = publishing_repository.control()
     bundle = publishing_repository.bundle_for_draft(draft_id)
     publishing_repository.commit()
+    workflow = build_content_workflow(
+        draft_status=draft.status,
+        publishing_mode=publishing_control.mode,
+        has_original_image=bool(draft.product.primary_image_path),
+        has_edited_image=edited_image is not None,
+        image_editor_available=request.app.state.image_editor is not None,
+        has_voice=voice is not None,
+        has_bundle=bundle is not None,
+        product_edit_url=f"/admin/products/{draft.product.id}/edit",
+    )
+    publishing_default_destinations = dict(
+        request.app.state.platform_default_destinations
+    )
+    publishing_default_destinations["telegram"] = (
+        request.app.state.telegram_default_destination
+    )
+    active_real_destinations = [
+        (
+            name,
+            PLATFORM_LABELS.get(name, name),
+            publishing_default_destinations.get(name, "").strip(),
+        )
+        for name in request.app.state.platform_adapters
+        if name != "sandbox"
+        and publishing_default_destinations.get(name, "").strip()
+    ]
+    if not active_real_destinations and "sandbox" in request.app.state.platform_adapters:
+        active_real_destinations = [
+            ("sandbox", PLATFORM_LABELS["sandbox"], "کانال آزمایشی")
+        ]
     return templates.TemplateResponse(
         request=request,
         name="content/detail.html",
@@ -164,9 +212,41 @@ def _render_detail(
             "voice_saved": voice_saved,
             "image_saved": image_saved,
             "bundle_saved": bundle_saved,
+            "approved": approved,
+            "rejected": rejected,
+            "caption_saved": caption_saved,
             "bundle": bundle,
             "publishing_control": publishing_control,
+            "workflow": workflow,
+            "workflow_steps": workflow.by_key,
             "publishing_mode_label": MODE_LABELS[publishing_control.mode],
+            "publishing_platforms": [
+                (name, PLATFORM_LABELS.get(name, name))
+                for name in request.app.state.platform_adapters
+            ],
+            "default_publishing_platform": next(
+                (
+                    name
+                    for name in ("telegram", "bale", "rubika", "sandbox")
+                    if name in request.app.state.platform_adapters
+                ),
+                "sandbox",
+            ),
+            "publishing_default_destinations": (
+                publishing_default_destinations
+            ),
+            "publishing_active_destinations": active_real_destinations,
+            "default_publishing_destination": next(
+                (
+                    publishing_default_destinations.get(name, "")
+                    for name in ("telegram", "bale", "rubika", "sandbox")
+                    if name in request.app.state.platform_adapters
+                ),
+                "کانال آزمایشی",
+            ),
+            "telegram_default_destination": (
+                request.app.state.telegram_default_destination
+            ),
             "image_editor_available": request.app.state.image_editor is not None,
             "error": error,
         },
@@ -191,23 +271,33 @@ def generate_content(
     db: Annotated[Session, Depends(get_db)],
     csrf_token: Annotated[str, Form()] = "",
     product_id: Annotated[int, Form()] = 0,
-    user_brief: Annotated[str, Form()] = "",
+    content_mode: Annotated[str, Form()] = "ai",
+    ai_brief: Annotated[str, Form()] = "",
+    manual_caption: Annotated[str, Form()] = "",
     requested_angle: Annotated[str, Form()] = "product_intro",
 ):
     validate_csrf(request, csrf_token)
     BrandService(BrandRepository(db)).get_or_create()
+    content_input = manual_caption if content_mode == "manual" else ai_brief
+    form_values = {
+        "content_mode": content_mode,
+        "ai_brief": ai_brief,
+        "manual_caption": manual_caption,
+        "requested_angle": requested_angle,
+    }
     try:
         draft = _content_service(request, db).generate(
             product_id,
-            user_brief=user_brief,
+            user_brief=content_input,
             requested_angle=requested_angle,
+            content_mode=content_mode,
         )
     except ContentInputError as exc:
         return _render_new(
             request,
             db,
             selected_product_id=product_id,
-            values={"user_brief": user_brief, "requested_angle": requested_angle},
+            values=form_values,
             error=str(exc),
             status_code=422,
         )
@@ -216,7 +306,7 @@ def generate_content(
             request,
             db,
             selected_product_id=product_id,
-            values={"user_brief": user_brief, "requested_angle": requested_angle},
+            values=form_values,
             error=str(exc),
             status_code=503,
         )
@@ -232,6 +322,9 @@ def content_detail(
     voice_saved: bool = False,
     image_saved: bool = False,
     bundle_saved: bool = False,
+    approved: bool = False,
+    rejected: bool = False,
+    caption_saved: bool = False,
 ):
     return _render_detail(
         request,
@@ -240,6 +333,9 @@ def content_detail(
         voice_saved=voice_saved,
         image_saved=image_saved,
         bundle_saved=bundle_saved,
+        approved=approved,
+        rejected=rejected,
+        caption_saved=caption_saved,
     )
 
 
@@ -266,11 +362,14 @@ def create_post_bundle(
             and request.app.state.image_editor is not None
             and edited_image is None
         ):
+            draft = _content_service(request, db).get(draft_id)
             _generate_and_store_edited_image(
                 draft_id,
                 request,
                 db,
+                mode="studio",
                 background_style="adaptive_studio",
+                overlay_text=draft.product.name,
             )
         service.create_bundle(draft_id)
     except BundleInputError as exc:
@@ -294,7 +393,11 @@ def generate_edited_image(
     _admin: Annotated[str, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
     csrf_token: Annotated[str, Form()] = "",
+    image_mode: Annotated[str, Form()] = "studio",
     background_style: Annotated[str, Form()] = "adaptive_studio",
+    overlay_text: Annotated[str, Form()] = "",
+    topic: Annotated[str, Form()] = "",
+    message: Annotated[str, Form()] = "",
 ):
     validate_csrf(request, csrf_token)
     editor = request.app.state.image_editor
@@ -311,7 +414,11 @@ def generate_edited_image(
             draft_id,
             request,
             db,
+            mode=image_mode,
             background_style=background_style,
+            overlay_text=overlay_text,
+            topic=topic,
+            message=message,
         )
     except ContentNotFound as exc:
         raise HTTPException(status_code=404, detail="Content draft not found") from exc
@@ -383,7 +490,10 @@ def edit_content(
         _content_service(request, db).edit_caption(draft_id, final_caption)
     except (ContentInputError, ContentStateError) as exc:
         return _render_detail(request, db, draft_id, error=str(exc), status_code=422)
-    return RedirectResponse(f"/admin/content/{draft_id}", status_code=303)
+    return RedirectResponse(
+        f"/admin/content/{draft_id}?caption_saved=1#caption-studio",
+        status_code=303,
+    )
 
 
 @router.post("/{draft_id}/regenerate")
@@ -417,7 +527,11 @@ def _change_state(
         return _render_detail(request, db, draft_id, error=str(exc), status_code=422)
     except ContentNotFound as exc:
         raise HTTPException(status_code=404, detail="Content draft not found") from exc
-    return RedirectResponse(f"/admin/content/{draft_id}", status_code=303)
+    query_flag = "approved" if action == "approve" else "rejected"
+    return RedirectResponse(
+        f"/admin/content/{draft_id}?{query_flag}=1#caption-studio",
+        status_code=303,
+    )
 
 
 @router.post("/{draft_id}/approve")

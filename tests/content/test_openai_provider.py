@@ -91,6 +91,8 @@ def test_openai_provider_uses_responses_structured_output_and_verified_cta():
     assert payload["text"]["format"]["schema"]["properties"]["content_angle"][
         "enum"
     ] == ["product_intro"]
+    assert "body دقیقاً یک پاراگراف کوتاه" in payload["instructions"]
+    assert "CTA، شناسه پشتیبانی" in payload["instructions"]
     model_input = json.loads(payload["input"])
     assert model_input["approved_style_examples"] == [
         "نمونه تأییدشده قبلی با لحن حرفه‌ای."
@@ -152,3 +154,74 @@ def test_openai_provider_rejects_non_completed_response():
 
     with pytest.raises(ContentProviderInvalidResponse, match="کامل نشد"):
         provider.generate(content_request())
+
+
+def test_openai_provider_rejects_inferred_audience_and_quality_claims():
+    unsupported = _valid_generated_content()
+    unsupported["body"] = "این محصول یک گزینه مطمئن برای پروژه شماست."
+    unsupported["benefits"] = ["مناسب کابینت‌سازان حرفه‌ای"]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_response_payload(unsupported), request=request)
+
+    provider = OpenAIContentProvider(
+        api_key="sk-test-not-a-real-secret",
+        model="gpt-test-model",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    with pytest.raises(ContentProviderInvalidResponse, match="ادعای تأییدنشده"):
+        provider.generate(content_request())
+
+
+def test_openai_provider_retries_once_when_first_response_has_unverified_claim():
+    unsafe = _valid_generated_content()
+    unsafe["body"] = "این محصول با ضمانت کیفیت معرفی می‌شود."
+    safe = _valid_generated_content()
+    requests: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        content = unsafe if len(requests) == 1 else safe
+        return httpx.Response(200, json=_response_payload(content), request=request)
+
+    provider = OpenAIContentProvider(
+        api_key="sk-test-not-a-real-secret",
+        model="gpt-test-model",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    generated = provider.generate(content_request())
+
+    assert generated.body == safe["body"]
+    assert len(requests) == 2
+    correction_input = json.loads(requests[1]["input"])
+    assert correction_input["rejected_claim_markers"] == ["ضمانت"]
+
+
+def test_openai_provider_retries_when_output_copies_manager_brief_verbatim():
+    brief = "روی فرم منحنی و نمای سفید شیاردار محصول تمرکز شود."
+    copied = _valid_generated_content()
+    copied["body"] = brief
+    rewritten = _valid_generated_content()
+    rewritten["body"] = "فرم منحنی محصول در کنار نمای سفید شیاردار آن معرفی می‌شود."
+    requests: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        content = copied if len(requests) == 1 else rewritten
+        return httpx.Response(200, json=_response_payload(content), request=request)
+
+    provider = OpenAIContentProvider(
+        api_key="sk-test-not-a-real-secret",
+        model="gpt-test-model",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    request = content_request().model_copy(update={"user_brief": brief})
+
+    generated = provider.generate(request)
+
+    assert generated.body == rewritten["body"]
+    assert len(requests) == 2
+    correction_input = json.loads(requests[1]["input"])
+    assert correction_input["rewrite_manager_brief"] is True

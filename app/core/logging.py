@@ -8,6 +8,12 @@ _KEY_VALUE_SECRET = re.compile(
     r"(?P<value>\"[^\"]*\"|'[^']*'|Bearer\s+[^\s,;]+|[^\s,;]+)"
 )
 _OPENAI_STYLE_SECRET = re.compile(r"(?i)(?<![a-z0-9])sk-[a-z0-9_-]+")
+_TELEGRAM_BOT_URL_SECRET = re.compile(
+    r"(?i)(https://api\.telegram\.org/bot)[^/\s\"']+"
+)
+_RUBIKA_BOT_URL_SECRET = re.compile(
+    r"(?i)(https://botapi\.rubika\.ir/v3/)[^/\s\"']+"
+)
 _factory_installed = False
 
 
@@ -16,19 +22,25 @@ def redact_secrets(message: str) -> str:
         lambda match: f"{match.group('key')}{match.group('separator')}[REDACTED]",
         message,
     )
-    return _OPENAI_STYLE_SECRET.sub("[REDACTED]", redacted)
+    redacted = _OPENAI_STYLE_SECRET.sub("[REDACTED]", redacted)
+    redacted = _TELEGRAM_BOT_URL_SECRET.sub(r"\1[REDACTED]", redacted)
+    return _RUBIKA_BOT_URL_SECRET.sub(r"\1[REDACTED]", redacted)
 
 
 class SecretRedactionFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        if record.name != "app" and not record.name.startswith("app."):
-            return True
         try:
             rendered = record.getMessage()
         except Exception:
             rendered = str(record.msg)
-        record.msg = redact_secrets(rendered)
-        record.args = ()
+        redacted = redact_secrets(rendered)
+        if (
+            record.name == "app"
+            or record.name.startswith("app.")
+            or redacted != rendered
+        ):
+            record.msg = redacted
+            record.args = ()
         return True
 
 

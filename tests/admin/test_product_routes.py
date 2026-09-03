@@ -6,7 +6,6 @@ def product_form(csrf_token: str, **overrides) -> dict[str, str]:
         "csrf_token": csrf_token,
         "name": "میز کانتر",
         "description": "طراحی منحنی",
-        "price": "25000000",
         "availability": "available",
         "shipping_info": "ارسال سراسر ایران",
         "tags": "کانتر، دکوراسیون",
@@ -32,6 +31,14 @@ def test_product_pages_redirect_anonymous_user(client):
     assert response.headers["location"] == "/admin/login"
 
 
+def test_product_form_has_no_price_input(authenticated_client):
+    page = authenticated_client.get("/admin/products/new")
+
+    assert page.status_code == 200
+    assert 'name="price"' not in page.text
+    assert 'for="price"' not in page.text
+
+
 def test_admin_creates_product_with_real_image(
     authenticated_client, csrf_token, png_upload
 ):
@@ -41,7 +48,7 @@ def test_admin_creates_product_with_real_image(
     assert response.headers["location"].startswith("/admin/products/")
     detail = authenticated_client.get(response.headers["location"])
     assert "میز کانتر" in detail.text
-    assert "۲۵٬۰۰۰٬۰۰۰" in detail.text
+    assert "قیمت" not in detail.text
     assert "counter.png" not in detail.text
     image = re.search(
         r'src="(/uploads/products/\d+/original/[a-f0-9]{32}\.png)"', detail.text
@@ -53,18 +60,17 @@ def test_admin_creates_product_with_real_image(
     assert image_response.content == png_upload
 
 
-def test_invalid_price_returns_feedback_without_creating_product(
+def test_product_detail_uses_equal_stacked_primary_actions(
     authenticated_client, csrf_token, png_upload
 ):
-    response = authenticated_client.post(
-        "/admin/products",
-        data=product_form(csrf_token, price="-1"),
-        files={"image": ("counter.png", png_upload, "image/png")},
-    )
+    created = create_product(authenticated_client, csrf_token, png_upload)
 
-    assert response.status_code == 422
-    assert "قیمت" in response.text
-    assert "میز کانتر" not in authenticated_client.get("/admin/products").text
+    detail = authenticated_client.get(created.headers["location"])
+    stylesheet = authenticated_client.get("/static/css/app.css")
+
+    assert 'class="detail-actions product-detail-actions"' in detail.text
+    assert ".product-detail-actions { display: grid;" in stylesheet.text
+    assert ".product-detail-actions .button { width: 100%;" in stylesheet.text
 
 
 def test_invalid_image_does_not_create_product(authenticated_client, csrf_token):

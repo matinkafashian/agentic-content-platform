@@ -1,4 +1,3 @@
-from decimal import Decimal
 from io import BytesIO
 
 from PIL import Image
@@ -19,7 +18,6 @@ def create_draft(db_session) -> tuple[Product, ContentDraft]:
     product = Product(
         name="محصول رنگی",
         description="نمونه تست",
-        price=Decimal("1000000"),
         availability="available",
         shipping_info="",
         attributes={"رنگ": "مطابق تصویر"},

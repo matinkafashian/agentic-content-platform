@@ -17,7 +17,9 @@ class Product(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), index=True)
     description: Mapped[str] = mapped_column(Text, default="")
-    price: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    legacy_price: Mapped[Decimal] = mapped_column(
+        "price", Numeric(18, 2), default=Decimal("0")
+    )
     availability: Mapped[str] = mapped_column(String(40), default="available")
     shipping_info: Mapped[str] = mapped_column(Text, default="")
     attributes: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)

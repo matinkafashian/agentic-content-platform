@@ -15,7 +15,14 @@ def make_settings(
         "secret_key": secret_key,
         "admin_username": "admin",
         "admin_password_hash": "$argon2id$v=19$m=65536,t=3,p=4$invalid$invalid",
+        "content_provider": "template",
         "openai_api_key": None,
+        "telegram_bot_token": None,
+        "telegram_default_destination": "",
+        "bale_bot_token": None,
+        "bale_default_destination": "",
+        "rubika_bot_token": None,
+        "rubika_default_destination": "",
         "publishing_worker_enabled": False,
         "debug": True,
     }
@@ -33,6 +40,15 @@ def test_health_returns_service_status(tmp_path):
         "status": "ok",
         "service": "agentic-content-platform",
     }
+
+
+def test_root_redirects_to_admin_panel(tmp_path):
+    client = TestClient(create_app(make_settings(tmp_path)))
+
+    response = client.get("/", follow_redirects=False)
+
+    assert response.status_code == 307
+    assert response.headers["location"] == "/admin"
 
 
 def test_settings_reject_short_secret(tmp_path):
@@ -77,3 +93,60 @@ def test_template_mode_treats_blank_openai_key_as_image_editor_disabled(tmp_path
     )
 
     assert app.state.image_editor is None
+
+
+def test_app_registers_telegram_only_when_secret_token_is_configured(tmp_path):
+    without_token = create_app(make_settings(tmp_path, telegram_bot_token=None))
+    settings = make_settings(
+        tmp_path,
+        telegram_bot_token="123456:test-telegram-token",
+        telegram_default_destination="@test_channel",
+    )
+    with_token = create_app(settings)
+
+    assert set(without_token.state.platform_adapters) == {"sandbox"}
+    assert set(with_token.state.platform_adapters) == {"sandbox", "telegram"}
+    assert with_token.state.telegram_default_destination == "@test_channel"
+    assert "test-telegram-token" not in repr(settings)
+    with_token.state.platform_adapters["telegram"].close()
+
+
+def test_app_registers_bale_only_when_secret_token_is_configured(tmp_path):
+    without_token = create_app(
+        make_settings(tmp_path, telegram_bot_token=None, bale_bot_token=None)
+    )
+    settings = make_settings(
+        tmp_path,
+        telegram_bot_token=None,
+        bale_bot_token="123456:test-bale-token",
+        bale_default_destination="@bale_test_channel",
+    )
+    with_token = create_app(settings)
+
+    assert set(without_token.state.platform_adapters) == {"sandbox"}
+    assert set(with_token.state.platform_adapters) == {"sandbox", "bale"}
+    assert with_token.state.platform_default_destinations["bale"] == (
+        "@bale_test_channel"
+    )
+    assert "test-bale-token" not in repr(settings)
+    with_token.state.platform_adapters["bale"].close()
+
+
+def test_app_registers_rubika_only_when_secret_token_is_configured(tmp_path):
+    without_token = create_app(make_settings(tmp_path, rubika_bot_token=None))
+    settings = make_settings(
+        tmp_path,
+        telegram_bot_token=None,
+        bale_bot_token=None,
+        rubika_bot_token="rubika-test-secret-token",
+        rubika_default_destination="rubika-channel-chat-id",
+    )
+    with_token = create_app(settings)
+
+    assert set(without_token.state.platform_adapters) == {"sandbox"}
+    assert set(with_token.state.platform_adapters) == {"sandbox", "rubika"}
+    assert with_token.state.platform_default_destinations["rubika"] == (
+        "rubika-channel-chat-id"
+    )
+    assert "rubika-test-secret-token" not in repr(settings)
+    with_token.state.platform_adapters["rubika"].close()

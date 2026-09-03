@@ -12,6 +12,9 @@
   const indicator = root.querySelector("[data-recording-indicator]");
   const timer = root.querySelector("[data-record-timer]");
   const message = root.querySelector("[data-record-message]");
+  const unsavedWarning = root.querySelector("[data-record-unsaved]");
+  const discardButton = root.querySelector("[data-record-discard]");
+  const bundleButtons = document.querySelectorAll("[data-bundle-create]");
   const maximumDuration = 600000;
   let recorder;
   let stream;
@@ -48,6 +51,24 @@
     if (stream) stream.getTracks().forEach((track) => track.stop());
     stream = undefined;
   };
+  const blockBundle = (blocked) => {
+    bundleButtons.forEach((button) => {
+      button.disabled = blocked;
+      if (blocked) {
+        button.setAttribute("aria-describedby", "voice-unsaved-note");
+      } else {
+        button.removeAttribute("aria-describedby");
+      }
+    });
+  };
+  const showUnsavedState = (visible) => {
+    if (unsavedWarning) {
+      unsavedWarning.hidden = !visible;
+      unsavedWarning.id = "voice-unsaved-note";
+    }
+    if (discardButton) discardButton.hidden = !visible;
+    blockBundle(visible);
+  };
   const preferredMimeType = () => [
     "audio/webm;codecs=opus",
     "audio/ogg;codecs=opus",
@@ -77,6 +98,7 @@
       stopButton.disabled = true;
       saveButton.disabled = true;
       indicator.hidden = true;
+      showUnsavedState(false);
       say("صدایی ثبت نشد. دوباره ضبط را شروع کنید و چند ثانیه صحبت کنید.");
       return;
     }
@@ -89,7 +111,8 @@
     stopButton.disabled = true;
     saveButton.disabled = false;
     indicator.hidden = true;
-    say("ضبط تمام شد. برای نگهداری این وویس، دکمه «ذخیره وویس» را بزنید.");
+    showUnsavedState(true);
+    say("ضبط تمام شد. برای اضافه‌شدن به بسته نهایی، دکمه «ذخیره و پیوست وویس» را بزنید.");
   };
 
   startButton.addEventListener("click", async () => {
@@ -106,6 +129,8 @@
       preview.hidden = true;
       previewWrap.hidden = true;
       revokePreview();
+      showUnsavedState(false);
+      blockBundle(true);
       const mimeType = preferredMimeType();
       recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       recorder.addEventListener("dataavailable", (event) => {
@@ -119,6 +144,7 @@
         stopButton.disabled = true;
         saveButton.disabled = true;
         indicator.hidden = true;
+        showUnsavedState(false);
         say("ضبط کامل نشد. دوباره تلاش کنید.");
       }, { once: true });
       recorder.start(1000);
@@ -140,12 +166,27 @@
       startButton.disabled = false;
       stopButton.disabled = true;
       indicator.hidden = true;
+      showUnsavedState(false);
       say("دسترسی میکروفن داده نشد. اجازه میکروفن مرورگر را فعال و دوباره تلاش کنید.");
     }
   });
 
   stopButton.addEventListener("click", () => {
     if (recorder?.state === "recording") recorder.stop();
+  });
+
+  discardButton?.addEventListener("click", () => {
+    chunks = [];
+    fileInput.value = "";
+    durationInput.value = "";
+    preview.removeAttribute("src");
+    preview.hidden = true;
+    previewWrap.hidden = true;
+    saveButton.disabled = true;
+    revokePreview();
+    showUnsavedState(false);
+    updateTimer(0);
+    say("ضبط فعلی کنار گذاشته شد. بسته نهایی می‌تواند بدون وویس ساخته شود.");
   });
 
   window.addEventListener("pagehide", () => {

@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     openai_image_quality: Literal["low", "medium", "high"] = "high"
     openai_image_timeout_seconds: float = Field(default=180.0, gt=0, le=300)
     max_voice_bytes: int = Field(default=25 * 1024 * 1024, gt=0)
+    telegram_bot_token: SecretStr | None = None
+    telegram_default_destination: str = ""
+    telegram_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+    telegram_ffmpeg_binary: str = "ffmpeg"
+    bale_bot_token: SecretStr | None = None
+    bale_default_destination: str = ""
+    bale_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+    rubika_bot_token: SecretStr | None = None
+    rubika_default_destination: str = ""
+    rubika_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     publishing_worker_enabled: bool = True
     publishing_poll_seconds: float = Field(default=15.0, ge=2.0, le=300.0)
     debug: bool = False

@@ -1,4 +1,3 @@
-from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -30,7 +29,6 @@ class ProductFacts(BaseModel):
 
     name: str = Field(min_length=2, max_length=200)
     description: str = Field(default="", max_length=4000)
-    price: Decimal = Field(ge=0, max_digits=18, decimal_places=2)
     availability: str = Field(default="available", max_length=40)
     shipping_info: str = Field(default="", max_length=1000)
     attributes: dict[str, str] = Field(default_factory=dict, max_length=30)

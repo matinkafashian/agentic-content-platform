@@ -20,6 +20,7 @@ from app.publishing.service import (
     PublishingPaused,
     PublishingService,
 )
+from app.publishing.telegram import TelegramAdapter
 
 
 class SuccessfulAdapter:
@@ -40,6 +41,39 @@ class TemporaryFailureAdapter:
         )
 
 
+class PartialFailureAdapter:
+    platform = "sandbox"
+
+    def send(self, bundle, destination, idempotency_key):
+        return DeliveryResult(
+            ok=False,
+            external_message_ids=["telegram-photo-321"],
+            error_code="telegram_voice_partial",
+            safe_error_message="پست اصلی ارسال شد، اما وویس ارسال نشد",
+            retryable=False,
+        )
+
+
+class NamedSuccessfulAdapter:
+    def __init__(self, platform):
+        self.platform = platform
+
+    def send(self, bundle, destination, idempotency_key):
+        return DeliveryResult.success([f"{self.platform}-{idempotency_key}"])
+
+
+class NamedFailureAdapter:
+    def __init__(self, platform):
+        self.platform = platform
+
+    def send(self, bundle, destination, idempotency_key):
+        return DeliveryResult.failure(
+            code=f"{self.platform}_unavailable",
+            message=f"ارسال {self.platform} انجام نشد؛ اتصال را بررسی کنید",
+            retryable=False,
+        )
+
+
 @pytest.fixture
 def content_service(db_session):
     BrandService(BrandRepository(db_session)).get_or_create()
@@ -56,7 +90,6 @@ def product(db_session):
     item = Product(
         name="درب ممبران مدل آریا",
         description="طراحی نئوکلاسیک با خطوط عمودی",
-        price=12_500_000,
         availability="available",
         shipping_info="ارسال به سراسر ایران",
         attributes={"متریال": "MDF"},
@@ -233,6 +266,69 @@ def test_due_publication_records_success_and_external_ids(
     assert publication.published_at is not None
 
 
+def test_publish_now_processes_only_the_selected_publication(
+    db_session, tmp_path, content_service, draft, product
+):
+    _attach_original_image(db_session, tmp_path, product)
+    _approved_draft(content_service, draft)
+    service = _service(db_session, tmp_path)
+    bundle = service.create_bundle(draft.id)
+    selected = service.schedule(
+        bundle.id,
+        platform="sandbox",
+        destination="کانال اول",
+        scheduled_for=datetime.now(UTC),
+    )
+    other = service.schedule(
+        bundle.id,
+        platform="sandbox",
+        destination="کانال دوم",
+        scheduled_for=datetime.now(UTC),
+    )
+
+    published = service.publish_now(selected.id)
+
+    assert published.id == selected.id
+    assert selected.status == PublicationStatus.SUCCEEDED.value
+    assert selected.attempt_count == 1
+    assert other.status == PublicationStatus.SCHEDULED.value
+    assert other.attempt_count == 0
+
+
+def test_multi_platform_publish_keeps_each_result_independent(
+    db_session, tmp_path, content_service, draft, product
+):
+    _attach_original_image(db_session, tmp_path, product)
+    _approved_draft(content_service, draft)
+    service = PublishingService(
+        PublishingRepository(db_session),
+        tmp_path / "uploads",
+        {
+            "telegram": NamedSuccessfulAdapter("telegram"),
+            "bale": NamedFailureAdapter("bale"),
+        },
+    )
+    bundle = service.create_bundle(draft.id)
+
+    publications = service.schedule_many(
+        bundle.id,
+        destinations={
+            "telegram": "@telegram_channel",
+            "bale": "@bale_channel",
+        },
+        scheduled_for=datetime.now(UTC),
+    )
+    results = service.publish_many_now([item.id for item in publications])
+
+    assert [item.platform for item in results] == ["telegram", "bale"]
+    assert results[0].status == PublicationStatus.SUCCEEDED.value
+    assert results[1].status == PublicationStatus.FAILED.value
+    assert results[1].safe_error_message == (
+        "ارسال bale انجام نشد؛ اتصال را بررسی کنید"
+    )
+    assert all(item.attempt_count == 1 for item in results)
+
+
 def test_retryable_failure_is_rescheduled_with_safe_error(
     db_session, tmp_path, content_service, draft, product
 ):
@@ -260,3 +356,56 @@ def test_retryable_failure_is_rescheduled_with_safe_error(
 
     assert publication.status == PublicationStatus.FAILED.value
     assert publication.attempt_count == 3
+
+
+def test_partial_failure_preserves_sent_message_ids_without_retry(
+    db_session, tmp_path, content_service, draft, product
+):
+    _attach_original_image(db_session, tmp_path, product)
+    _approved_draft(content_service, draft)
+    service = _service(db_session, tmp_path, PartialFailureAdapter())
+    bundle = service.create_bundle(draft.id)
+    publication = service.schedule(
+        bundle.id,
+        platform="sandbox",
+        destination="@test_channel",
+        scheduled_for=datetime.now(UTC) - timedelta(seconds=1),
+    )
+
+    service.run_due(now=datetime.now(UTC))
+
+    assert publication.status == PublicationStatus.FAILED.value
+    assert publication.attempt_count == 1
+    assert publication.external_message_ids == ["telegram-photo-321"]
+    assert publication.error_code == "telegram_voice_partial"
+
+
+def test_telegram_allows_caption_longer_than_photo_caption_limit(
+    db_session, tmp_path, content_service, draft, product
+):
+    _attach_original_image(db_session, tmp_path, product)
+    draft.final_caption = "الف" * 1057
+    db_session.commit()
+    _approved_draft(content_service, draft)
+    adapter = TelegramAdapter(
+        bot_token="123:test-token",
+        upload_root=tmp_path / "uploads",
+    )
+    service = PublishingService(
+        PublishingRepository(db_session),
+        tmp_path / "uploads",
+        {"telegram": adapter},
+    )
+    bundle = service.create_bundle(draft.id)
+
+    publication = service.schedule(
+        bundle.id,
+        platform="telegram",
+        destination="@test_channel",
+        scheduled_for=datetime.now(UTC),
+    )
+
+    assert publication.platform == "telegram"
+    assert publication.status == PublicationStatus.SCHEDULED.value
+
+    adapter.close()

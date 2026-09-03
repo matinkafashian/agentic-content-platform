@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -19,7 +20,10 @@ from app.core.database import build_engine, build_session_factory
 from app.core.logging import configure_logging
 from app.media.openai_image_editor import OpenAIImageEditor
 from app.publishing.adapters import SandboxAdapter
+from app.publishing.bale import BaleAdapter
 from app.publishing.routes import router as publishing_router
+from app.publishing.rubika import RubikaAdapter
+from app.publishing.telegram import TelegramAdapter, TelegramVoicePreparer
 from app.publishing.worker import PublishingWorker, stop_worker
 
 
@@ -53,6 +57,55 @@ def create_app(settings: Settings) -> FastAPI:
             timeout_seconds=settings.openai_image_timeout_seconds,
         )
 
+    telegram_bot_token = (
+        settings.telegram_bot_token.get_secret_value().strip()
+        if settings.telegram_bot_token is not None
+        else ""
+    )
+    platform_adapters = {"sandbox": SandboxAdapter()}
+    telegram_adapter = None
+    if telegram_bot_token:
+        telegram_adapter = TelegramAdapter(
+            bot_token=telegram_bot_token,
+            upload_root=settings.upload_dir,
+            timeout_seconds=settings.telegram_timeout_seconds,
+            voice_preparer=TelegramVoicePreparer(
+                ffmpeg_binary=settings.telegram_ffmpeg_binary
+            ),
+        )
+        platform_adapters["telegram"] = telegram_adapter
+
+    bale_bot_token = (
+        settings.bale_bot_token.get_secret_value().strip()
+        if settings.bale_bot_token is not None
+        else ""
+    )
+    bale_adapter = None
+    if bale_bot_token:
+        bale_adapter = BaleAdapter(
+            bot_token=bale_bot_token,
+            upload_root=settings.upload_dir,
+            timeout_seconds=settings.bale_timeout_seconds,
+            voice_preparer=TelegramVoicePreparer(
+                ffmpeg_binary=settings.telegram_ffmpeg_binary
+            ),
+        )
+        platform_adapters["bale"] = bale_adapter
+
+    rubika_bot_token = (
+        settings.rubika_bot_token.get_secret_value().strip()
+        if settings.rubika_bot_token is not None
+        else ""
+    )
+    rubika_adapter = None
+    if rubika_bot_token:
+        rubika_adapter = RubikaAdapter(
+            bot_token=rubika_bot_token,
+            upload_root=settings.upload_dir,
+            timeout_seconds=settings.rubika_timeout_seconds,
+        )
+        platform_adapters["rubika"] = rubika_adapter
+
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         worker_task = None
@@ -68,7 +121,13 @@ def create_app(settings: Settings) -> FastAPI:
             yield
         finally:
             await stop_worker(worker_task)
-            for resource in (provider, image_editor):
+            for resource in (
+                provider,
+                image_editor,
+                telegram_adapter,
+                bale_adapter,
+                rubika_adapter,
+            ):
                 close = getattr(resource, "close", None)
                 if close is not None:
                     close()
@@ -79,7 +138,14 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.session_factory = build_session_factory(app.state.engine)
     app.state.content_provider = provider
     app.state.image_editor = image_editor
-    app.state.platform_adapters = {"sandbox": SandboxAdapter()}
+    app.state.platform_adapters = platform_adapters
+    app.state.telegram_default_destination = settings.telegram_default_destination.strip()
+    app.state.platform_default_destinations = {
+        "sandbox": "کانال آزمایشی",
+        "telegram": settings.telegram_default_destination.strip(),
+        "bale": settings.bale_default_destination.strip(),
+        "rubika": settings.rubika_default_destination.strip(),
+    }
     product_upload_root = settings.upload_dir / "products"
     product_upload_root.mkdir(parents=True, exist_ok=True)
     (settings.upload_dir / "private" / "voices").mkdir(parents=True, exist_ok=True)
@@ -112,5 +178,9 @@ def create_app(settings: Settings) -> FastAPI:
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:
         return {"status": "ok", "service": "agentic-content-platform"}
+
+    @app.get("/", include_in_schema=False)
+    def root() -> RedirectResponse:
+        return RedirectResponse("/admin")
 
     return app

@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="light">
     <title>{% block title %}پنل مدیریت{% endblock %} | هاب محتوا</title>
     <link rel="preload" href="/static/fonts/vazirmatn/Vazirmatn-RD-Variable.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/static/css/app.css">
-    <script src="/static/js/app.js" defer></script>
+    <link rel="stylesheet" href="/static/css/app.css?v=20260901a">
+    <script src="/static/js/app.js?v=20260901a" defer></script>
   </head>
   <body class="{{ 'auth-page' if public_page else 'admin-page' }}">
     {% if public_page %}
@@ -83,7 +83,6 @@
             </div>
           </header>
           <div class="content" id="main-content" tabindex="-1">
-            {% include "components/flash.html" %}
             {% block content %}{% endblock %}
           </div>
         </section>

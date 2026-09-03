@@ -127,31 +127,70 @@ class PublishingService:
         destination: str,
         scheduled_for: datetime,
     ) -> Publication:
+        return self.schedule_many(
+            bundle_id,
+            destinations={platform: destination},
+            scheduled_for=scheduled_for,
+        )[0]
+
+    def schedule_many(
+        self,
+        bundle_id: int,
+        *,
+        destinations: dict[str, str],
+        scheduled_for: datetime,
+    ) -> list[Publication]:
         bundle = self.repository.get_bundle(bundle_id)
         if bundle is None:
             raise ScheduleInputError("بسته نهایی پیدا نشد")
-        if platform not in self.adapters:
-            raise ScheduleInputError("پلتفرم انتخاب‌شده هنوز فعال نیست")
-        normalized_destination = destination.strip()
-        if not 2 <= len(normalized_destination) <= 200:
-            raise ScheduleInputError("نام مقصد باید بین ۲ تا ۲۰۰ نویسه باشد")
+        if not destinations:
+            raise ScheduleInputError("هیچ کانال فعالی برای انتشار تنظیم نشده است")
         if scheduled_for.tzinfo is None:
             raise ScheduleInputError("زمان انتشار باید دارای منطقه زمانی باشد")
-        publication = Publication(
-            bundle_id=bundle.id,
-            platform=platform,
-            destination=normalized_destination,
-            status=PublicationStatus.SCHEDULED.value,
-            scheduled_for=scheduled_for.astimezone(UTC),
-            attempt_count=0,
-            max_attempts=3,
-            idempotency_key=str(uuid4()),
-            external_message_ids=[],
-        )
-        self.repository.add_publication(publication)
-        self.repository.commit()
-        self.repository.refresh(publication)
-        return publication
+
+        normalized_targets: list[tuple[str, str]] = []
+        for platform, destination in destinations.items():
+            adapter = self.adapters.get(platform)
+            if adapter is None:
+                raise ScheduleInputError(
+                    f"اتصال پلتفرم {platform} هنوز فعال نیست"
+                )
+            normalized_destination = destination.strip()
+            if not 2 <= len(normalized_destination) <= 200:
+                raise ScheduleInputError(
+                    f"مقصد پلتفرم {platform} تنظیم نشده یا معتبر نیست"
+                )
+            validator = getattr(adapter, "validate", None)
+            if validator is not None:
+                validation_error = validator(bundle, normalized_destination)
+                if validation_error is not None:
+                    raise ScheduleInputError(validation_error.safe_error_message)
+            normalized_targets.append((platform, normalized_destination))
+
+        publications = [
+            Publication(
+                bundle_id=bundle.id,
+                platform=platform,
+                destination=destination,
+                status=PublicationStatus.SCHEDULED.value,
+                scheduled_for=scheduled_for.astimezone(UTC),
+                attempt_count=0,
+                max_attempts=3,
+                idempotency_key=str(uuid4()),
+                external_message_ids=[],
+            )
+            for platform, destination in normalized_targets
+        ]
+        try:
+            for publication in publications:
+                self.repository.add_publication(publication)
+            self.repository.commit()
+            for publication in publications:
+                self.repository.refresh(publication)
+        except Exception:
+            self.repository.rollback()
+            raise
+        return publications
 
     def run_due(self, *, now: datetime | None = None) -> list[Publication]:
         current = (now or datetime.now(UTC)).astimezone(UTC)
@@ -160,34 +199,66 @@ class PublishingService:
             raise PublishingPaused("انتشار متوقف است")
         processed: list[Publication] = []
         for publication in self.repository.due(current):
-            publication.status = PublicationStatus.PUBLISHING.value
-            publication.attempt_count += 1
-            self.repository.commit()
-            adapter = self.adapters.get(publication.platform)
-            if adapter is None:
-                result = DeliveryResult.failure(
-                    code="adapter_unavailable",
-                    message="اتصال این پلتفرم در دسترس نیست",
-                    retryable=False,
-                )
-            else:
-                try:
-                    result = adapter.send(
-                        publication.bundle,
-                        publication.destination,
-                        publication.idempotency_key,
-                    )
-                except Exception:
-                    result = DeliveryResult.failure(
-                        code="adapter_exception",
-                        message="ارسال با خطای موقت روبه‌رو شد",
-                        retryable=True,
-                    )
-            self._apply_result(publication, result, current)
-            self.repository.commit()
-            self.repository.refresh(publication)
+            self._deliver(publication, current)
             processed.append(publication)
         return processed
+
+    def publish_now(
+        self, publication_id: int, *, now: datetime | None = None
+    ) -> Publication:
+        return self.publish_many_now([publication_id], now=now)[0]
+
+    def publish_many_now(
+        self, publication_ids: list[int], *, now: datetime | None = None
+    ) -> list[Publication]:
+        current = (now or datetime.now(UTC)).astimezone(UTC)
+        if self.repository.control().mode == PublishingMode.PAUSED.value:
+            self.repository.commit()
+            raise PublishingPaused("انتشار متوقف است")
+        if not publication_ids:
+            raise ScheduleInputError("هیچ موردی برای ارسال انتخاب نشده است")
+        publications: list[Publication] = []
+        for publication_id in publication_ids:
+            publication = self.repository.get_publication(publication_id)
+            if publication is None:
+                raise ScheduleInputError("مورد ارسال پیدا نشد")
+            if publication.status not in {
+                PublicationStatus.SCHEDULED.value,
+                PublicationStatus.RETRY_SCHEDULED.value,
+            }:
+                raise ScheduleInputError("این مورد قبلاً پردازش شده است")
+            publications.append(publication)
+        for publication in publications:
+            self._deliver(publication, current)
+        return publications
+
+    def _deliver(self, publication: Publication, current: datetime) -> None:
+        publication.status = PublicationStatus.PUBLISHING.value
+        publication.attempt_count += 1
+        self.repository.commit()
+        adapter = self.adapters.get(publication.platform)
+        if adapter is None:
+            result = DeliveryResult.failure(
+                code="adapter_unavailable",
+                message="اتصال این پلتفرم در دسترس نیست",
+                retryable=False,
+            )
+        else:
+            try:
+                result = adapter.send(
+                    publication.bundle,
+                    publication.destination,
+                    publication.idempotency_key,
+                )
+            except Exception:
+                result = DeliveryResult.failure(
+                    code="adapter_exception",
+                    message="ارسال با خطای موقت روبه‌رو شد",
+                    retryable=True,
+                )
+        self._apply_result(publication, result, current)
+        self.repository.commit()
+        self.repository.refresh(publication)
 
     def _approve_automatically(self, draft) -> None:
         if draft.status == DraftStatus.APPROVED.value:
@@ -261,7 +332,7 @@ class PublishingService:
             publication.safe_error_message = None
             publication.published_at = now
             return
-        publication.external_message_ids = []
+        publication.external_message_ids = list(result.external_message_ids)
         publication.error_code = result.error_code or "delivery_failed"
         publication.safe_error_message = (
             result.safe_error_message or "ارسال ناموفق بود"

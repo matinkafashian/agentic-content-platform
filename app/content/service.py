@@ -8,7 +8,11 @@ from app.brand.repository import BrandRepository
 from app.catalog.models import Product
 from app.catalog.repository import ProductRepository
 from app.content.models import ContentDraft, DraftStatus
-from app.content.providers import ContentProvider, compose_caption
+from app.content.providers import (
+    ContentProvider,
+    compose_caption,
+    compose_manual_caption,
+)
 from app.content.repository import ContentRepository
 from app.content.schemas import (
     BrandFacts,
@@ -61,9 +65,29 @@ class ContentService:
         *,
         user_brief: str,
         requested_angle: ContentAngle,
+        content_mode: str = "ai",
     ) -> ContentDraft:
-        request = self._generation_request(product_id, user_brief, requested_angle)
-        generated = self.provider.generate(request)
+        normalized_mode = content_mode.strip().lower()
+        normalized_text = user_brief.strip()
+        if normalized_mode not in {"ai", "manual"}:
+            raise ContentInputError("روش آماده‌سازی متن معتبر نیست")
+        if normalized_mode == "ai" and not normalized_text:
+            raise ContentInputError("برای تولید با هوش مصنوعی، توضیح کوتاه را وارد کنید")
+        if normalized_mode == "manual" and not 20 <= len(normalized_text) <= 3500:
+            raise ContentInputError("متن کامل باید بین ۲۰ تا ۳۵۰۰ نویسه باشد")
+
+        request = self._generation_request(
+            product_id, normalized_text, requested_angle
+        )
+        if normalized_mode == "manual":
+            provider_name = "manual"
+            provider_payload = {"content_mode": "manual"}
+            final_caption = compose_manual_caption(normalized_text, request)
+        else:
+            generated = self.provider.generate(request)
+            provider_name = self.provider.name
+            provider_payload = generated.model_dump(mode="json")
+            final_caption = compose_caption(generated, request)
         draft = ContentDraft(
             product_id=product_id,
             parent_id=None,
@@ -71,15 +95,17 @@ class ContentService:
             revision=1,
             user_brief=request.user_brief,
             requested_angle=request.requested_angle,
-            provider_name=self.provider.name,
-            provider_payload=generated.model_dump(mode="json"),
-            final_caption=compose_caption(generated, request),
+            provider_name=provider_name,
+            provider_payload=provider_payload,
+            final_caption=final_caption,
             status=DraftStatus.WAITING_APPROVAL.value,
         )
         return self._persist_new(draft)
 
     def regenerate(self, draft_id: int) -> ContentDraft:
         previous = self.get(draft_id)
+        if previous.provider_name == "manual":
+            raise ContentStateError("متن دستی بازتولید نمی‌شود؛ همان متن را ویرایش کنید")
         request = self._generation_request(
             previous.product_id,
             previous.user_brief,
@@ -174,16 +200,24 @@ class ContentService:
         if brand is None:
             raise ContentInputError("پروفایل برند هنوز تنظیم نشده است")
         try:
+            style_examples: list[str] = []
+            if (
+                self.repository.approved_caption_count(
+                    exclude_series_key=exclude_series_key
+                )
+                >= 20
+            ):
+                style_examples = self.repository.recent_approved_captions(
+                    product_id,
+                    exclude_series_key=exclude_series_key,
+                    limit=3,
+                )
             return ContentGenerationRequest(
                 product=self._product_facts(product),
                 brand=self._brand_facts(brand),
                 user_brief=user_brief,
                 requested_angle=requested_angle,
-                style_examples=self.repository.recent_approved_captions(
-                    product_id,
-                    exclude_series_key=exclude_series_key,
-                    limit=3,
-                ),
+                style_examples=style_examples,
             )
         except ValidationError as exc:
             raise ContentInputError("اطلاعات تولید محتوا کامل یا معتبر نیست") from exc
@@ -193,7 +227,6 @@ class ContentService:
         return ProductFacts(
             name=product.name,
             description=product.description,
-            price=product.price,
             availability=product.availability,
             shipping_info=product.shipping_info,
             attributes=product.attributes,

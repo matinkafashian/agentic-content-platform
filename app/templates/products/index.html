@@ -26,7 +26,6 @@
           </a>
           <div class="product-card-body">
             <div><span class="product-category">{{ product.availability }}</span><h2><a href="/admin/products/{{ product.id }}">{{ product.name }}</a></h2></div>
-            <strong class="product-price">{{ product.price | price_fa }} <small>تومان</small></strong>
             <div class="product-actions">
               <a class="button button-secondary button-small" href="/admin/products/{{ product.id }}">مشاهده</a>
               <a class="icon-link" href="/admin/products/{{ product.id }}/edit" aria-label="ویرایش {{ product.name }}">ویرایش</a>

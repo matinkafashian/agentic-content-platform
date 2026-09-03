@@ -66,22 +66,33 @@ class TemplateContentProvider:
         )
 
 
-def _format_price_fa(value: object) -> str:
-    western = f"{value:,.0f}"
-    return western.translate(str.maketrans("0123456789,", "۰۱۲۳۴۵۶۷۸۹٬"))
-
-
 def compose_caption(
     generated: GeneratedContent, request: ContentGenerationRequest
 ) -> str:
-    price_line = f"💰 قیمت: {_format_price_fa(request.product.price)} تومان"
+    inquiry_cta = "برای استعلام قیمت و ثبت سفارش، به ادمین پیام دهید:"
     hashtag_line = " ".join(f"#{tag}" for tag in generated.hashtags)
     sections = [
         generated.headline,
         generated.body,
         "\n".join(generated.benefits),
-        price_line,
-        generated.cta,
+        inquiry_cta,
+        request.brand.support_handle,
+        hashtag_line,
+    ]
+    return "\n\n".join(section for section in sections if section)
+
+
+def compose_manual_caption(
+    manual_text: str, request: ContentGenerationRequest
+) -> str:
+    inquiry_cta = "برای استعلام قیمت و ثبت سفارش، به ادمین پیام دهید:"
+    hashtags = list(
+        dict.fromkeys([*request.product.tags, *request.brand.default_hashtags])
+    )[:6]
+    hashtag_line = " ".join(f"#{tag}" for tag in hashtags)
+    sections = [
+        manual_text.strip(),
+        inquiry_cta,
         request.brand.support_handle,
         hashtag_line,
     ]

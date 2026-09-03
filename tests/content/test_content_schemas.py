@@ -16,7 +16,6 @@ def valid_request(**overrides) -> ContentGenerationRequest:
         "product": ProductFacts(
             name="درب ممبران مدل آریا",
             description="طراحی نئوکلاسیک",
-            price=Decimal("12500000"),
             availability="available",
             shipping_info="ارسال به سراسر ایران",
             attributes={"متریال": "MDF"},
@@ -43,6 +42,11 @@ def test_product_facts_normalize_duplicate_hashtags():
     request = valid_request()
 
     assert request.product.tags == ["درب_ممبران", "نئوکلاسیک"]
+
+
+def test_product_facts_reject_price_as_unknown_public_data():
+    with pytest.raises(ValidationError):
+        ProductFacts(name="محصول", price=Decimal("12500000"))
 
 
 def test_request_rejects_unknown_content_angle():
