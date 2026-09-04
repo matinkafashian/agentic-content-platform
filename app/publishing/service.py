@@ -224,6 +224,29 @@ class PublishingService:
     def publish_now(self, publication_id: int, *, now: datetime | None = None) -> Publication:
         return self.publish_many_now([publication_id], now=now)[0]
 
+    def retry_failed(self, publication_id: int, *, now: datetime | None = None) -> Publication:
+        current = (now or datetime.now(UTC)).astimezone(UTC)
+        if self.repository.control().mode == PublishingMode.PAUSED.value:
+            self.repository.commit()
+            raise PublishingPaused("انتشار متوقف است")
+        publication = self.repository.get_publication(publication_id)
+        if publication is None:
+            raise ScheduleInputError("مورد ارسال پیدا نشد")
+        if publication.status != PublicationStatus.FAILED.value:
+            raise ScheduleInputError("فقط ارسال ناموفق قابل تلاش مجدد است")
+        if publication.external_message_ids:
+            raise ScheduleInputError(
+                "بخشی از این ارسال قبلاً انجام شده و برای جلوگیری از تکرار دوباره ارسال نمی‌شود"
+            )
+        publication.status = PublicationStatus.SCHEDULED.value
+        publication.scheduled_for = current
+        publication.attempt_count = 0
+        publication.error_code = None
+        publication.safe_error_message = None
+        self.repository.commit()
+        self.repository.refresh(publication)
+        return self.publish_now(publication.id, now=current)
+
     def publish_many_now(
         self, publication_ids: list[int], *, now: datetime | None = None
     ) -> list[Publication]:

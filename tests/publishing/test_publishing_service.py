@@ -436,6 +436,35 @@ def test_retryable_failure_is_rescheduled_with_safe_error(
     assert publication.attempt_count == 3
 
 
+def test_failed_delivery_without_external_ids_can_be_retried_manually(
+    db_session, tmp_path, content_service, draft, product
+):
+    _attach_original_image(db_session, tmp_path, product)
+    _approved_draft(content_service, draft)
+    service = _service(db_session, tmp_path, TemporaryFailureAdapter())
+    bundle = service.create_bundle(draft.id)
+    publication = service.schedule(
+        bundle.id,
+        platform="sandbox",
+        destination="کانال آزمایشی",
+        scheduled_for=datetime.now(UTC),
+    )
+    service.publish_now(publication.id)
+    service.publish_now(publication.id)
+    service.publish_now(publication.id)
+    assert publication.status == PublicationStatus.FAILED.value
+    assert publication.attempt_count == 3
+
+    successful = CountingSuccessfulAdapter()
+    service.adapters["sandbox"] = successful
+    retried = service.retry_failed(publication.id)
+
+    assert retried.status == PublicationStatus.SUCCEEDED.value
+    assert retried.attempt_count == 1
+    assert retried.error_code is None
+    assert successful.send_count == 1
+
+
 def test_publication_can_be_claimed_for_delivery_only_once(
     db_session, tmp_path, content_service, draft, product
 ):

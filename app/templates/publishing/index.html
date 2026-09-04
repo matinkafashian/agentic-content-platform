@@ -38,6 +38,12 @@
           <div class="publication-meta"><span class="status-pill">{{ status_labels[item.status] }}</span><small>تلاش {{ item.attempt_count | fa_digits }} از {{ item.max_attempts | fa_digits }}</small></div>
           <time>{{ publication_times[item.id] | fa_digits }}</time>
           {% if item.safe_error_message %}<p class="publication-error">{{ item.safe_error_message }}</p>{% endif %}
+          {% if item.status == 'failed' and not item.external_message_ids %}
+            <form method="post" action="/admin/publishing/publications/{{ item.id }}/retry">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="button button-secondary" type="submit">ارسال مجدد فقط همین مورد</button>
+            </form>
+          {% endif %}
         </article>
       {% endfor %}
       </div>

@@ -68,6 +68,24 @@ class FailedBaleAdapter:
         )
 
 
+class RecoveringBaleAdapter:
+    platform = "bale"
+
+    def __init__(self):
+        self.available = False
+        self.send_count = 0
+
+    def send(self, bundle, destination, idempotency_key):
+        self.send_count += 1
+        if not self.available:
+            return DeliveryResult.failure(
+                code="bale_unavailable",
+                message="ارتباط با بله موقتاً برقرار نشد",
+                retryable=False,
+            )
+        return DeliveryResult.success(["bale-recovered-message"])
+
+
 def _draft_id(client, csrf_token, product):
     response = client.post(
         "/admin/content",
@@ -468,6 +486,56 @@ def test_send_to_all_active_platforms_reports_each_result_independently(
         publications = list(session.scalars(select(Publication).order_by(Publication.id)))
         assert [item.platform for item in publications] == ["telegram", "bale"]
         assert [item.status for item in publications] == ["succeeded", "failed"]
+
+
+def test_admin_can_retry_only_one_failed_publication(
+    authenticated_client, csrf_token, product, png_upload
+):
+    adapter = RecoveringBaleAdapter()
+    authenticated_client.app.state.platform_adapters["bale"] = adapter
+    _set_product_image(authenticated_client, product, png_upload)
+    draft_id = _draft_id(authenticated_client, csrf_token, product)
+    authenticated_client.post(
+        f"/admin/content/{draft_id}/approve",
+        data={"csrf_token": csrf_token},
+    )
+    authenticated_client.post(
+        f"/admin/content/{draft_id}/bundle",
+        data={"csrf_token": csrf_token},
+    )
+    page = authenticated_client.get(f"/admin/content/{draft_id}")
+    bundle_id = re.search(r'action="/admin/publishing/bundles/(\d+)/schedule"', page.text).group(1)
+    authenticated_client.post(
+        f"/admin/publishing/bundles/{bundle_id}/schedule",
+        data={
+            "csrf_token": csrf_token,
+            "platform": "bale",
+            "destination": "@bale_channel",
+            "delivery_action": "send_now",
+            "scheduled_for": "",
+        },
+        follow_redirects=False,
+    )
+    with authenticated_client.app.state.session_factory() as session:
+        publication_id = session.scalar(select(Publication.id))
+
+    listing = authenticated_client.get("/admin/publishing")
+    assert f'/admin/publishing/publications/{publication_id}/retry' in listing.text
+
+    adapter.available = True
+    retried = authenticated_client.post(
+        f"/admin/publishing/publications/{publication_id}/retry",
+        data={"csrf_token": csrf_token},
+        follow_redirects=False,
+    )
+
+    assert retried.status_code == 303
+    assert f"sent={publication_id}" in retried.headers["location"]
+    assert adapter.send_count == 2
+    with authenticated_client.app.state.session_factory() as session:
+        publication = session.get(Publication, publication_id)
+        assert publication.status == "succeeded"
+        assert publication.attempt_count == 1
 
 
 def test_content_page_defaults_to_all_active_channels_with_advanced_single_send(

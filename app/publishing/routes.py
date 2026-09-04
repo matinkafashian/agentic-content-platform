@@ -217,6 +217,28 @@ def run_due_now(
     return RedirectResponse(f"/admin/publishing?processed={processed}", status_code=303)
 
 
+@router.post("/publications/{publication_id}/retry")
+def retry_failed_publication(
+    publication_id: int,
+    request: Request,
+    _admin: Annotated[str, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    csrf_token: Annotated[str, Form()] = "",
+):
+    validate_csrf(request, csrf_token)
+    try:
+        publication = publishing_service(request, db).retry_failed(publication_id)
+    except PublishingPaused:
+        return RedirectResponse("/admin/publishing?paused=1", status_code=303)
+    except ScheduleInputError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if publication.status == PublicationStatus.SUCCEEDED.value:
+        return RedirectResponse(f"/admin/publishing?sent={publication.id}", status_code=303)
+    return RedirectResponse(
+        f"/admin/publishing?send_failed={publication.id}", status_code=303
+    )
+
+
 @router.get("/bundles/{bundle_id}/image")
 def bundle_image(
     bundle_id: int,

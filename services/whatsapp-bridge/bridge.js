@@ -5,7 +5,9 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 
-require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
+const projectRoot = path.resolve(__dirname, '..', '..');
+
+require('dotenv').config({ path: path.join(projectRoot, '.env') });
 
 const QRCode = require('qrcode');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
@@ -13,11 +15,11 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const host = '127.0.0.1';
 const port = integerEnv('WHATSAPP_BRIDGE_PORT', 8780, 1, 65535);
 const ackTimeoutMs = integerEnv('WHATSAPP_ACK_TIMEOUT_MS', 20000, 1000, 60000);
-const mediaRoot = path.resolve(process.env.UPLOAD_DIR || 'uploads');
-const sessionRoot = path.resolve(
+const mediaRoot = projectPath(process.env.UPLOAD_DIR || 'uploads');
+const sessionRoot = projectPath(
   process.env.WHATSAPP_SESSION_DIR || '.whatsapp-session',
 );
-const runtimeRoot = path.resolve(
+const runtimeRoot = projectPath(
   process.env.WHATSAPP_RUNTIME_DIR || '.whatsapp-runtime',
 );
 const qrPath = path.join(runtimeRoot, 'qr.png');
@@ -402,6 +404,10 @@ function integerEnv(name, fallback, minimum, maximum) {
     return parsed;
   }
   return fallback;
+}
+
+function projectPath(value) {
+  return path.isAbsolute(value) ? path.resolve(value) : path.resolve(projectRoot, value);
 }
 
 function loadOrCreateBridgeToken() {
