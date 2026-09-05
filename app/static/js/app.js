@@ -1,5 +1,33 @@
 (() => {
-  const alerts = [...document.querySelectorAll(".alert[role='alert'], .alert[role='status']")];
+  document.querySelectorAll('[data-delivery-form]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (form.dataset.sending === 'true') {
+        event.preventDefault();
+        return;
+      }
+      if (event.defaultPrevented || event.submitter?.value !== 'send_now') return;
+      form.dataset.sending = 'true';
+      form.setAttribute('aria-busy', 'true');
+      const stack = document.createElement('div');
+      stack.className = 'toast-stack';
+      const notice = document.createElement('div');
+      notice.className = 'alert toast-notification';
+      notice.setAttribute('role', 'status');
+      notice.textContent = '⏳ پیام‌ها در حال ارسال هستند؛ لطفاً تا نمایش نتیجه این صفحه را باز نگه دارید.';
+      stack.append(notice);
+      document.body.append(stack);
+      // Keep the submitter enabled so its delivery_action reaches the server.
+      if (event.submitter) event.submitter.textContent = 'در حال ارسال…';
+      window.addEventListener('pageshow', (pageEvent) => {
+        if (pageEvent.persisted) window.location.reload();
+      });
+    });
+  });
+  const alerts = [
+    ...document.querySelectorAll(
+      ".alert[role='alert']:not([data-persistent]), .alert[role='status']:not([data-persistent])",
+    ),
+  ];
   if (alerts.length) {
     const stack = document.createElement("div");
     stack.className = "toast-stack";

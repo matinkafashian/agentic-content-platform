@@ -24,6 +24,7 @@ def _values(profile: BrandProfile) -> dict[str, object]:
         "audience": profile.audience,
         "tone_guidelines": profile.tone_guidelines,
         "support_handle": profile.support_handle,
+        "support_phone": profile.support_phone,
         "default_cta": profile.default_cta,
         "approved_claims": profile.approved_claims,
         "default_hashtags": profile.default_hashtags,
@@ -71,6 +72,7 @@ def update_brand(
     audience: Annotated[str, Form()] = "",
     tone_guidelines: Annotated[str, Form()] = "",
     support_handle: Annotated[str, Form()] = "",
+    support_phone: Annotated[str, Form()] = "",
     default_cta: Annotated[str, Form()] = "",
     approved_claim: Annotated[list[str] | None, Form()] = None,
     default_hashtag: Annotated[list[str] | None, Form()] = None,
@@ -82,6 +84,7 @@ def update_brand(
         "audience": audience,
         "tone_guidelines": tone_guidelines,
         "support_handle": support_handle,
+        "support_phone": support_phone,
         "default_cta": default_cta,
         "approved_claims": approved_claim or [],
         "default_hashtags": default_hashtag or [],
@@ -97,4 +100,3 @@ def update_brand(
         )
     BrandService(BrandRepository(db)).update(data)
     return RedirectResponse("/admin/brand", status_code=303)
-

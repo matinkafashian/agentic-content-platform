@@ -11,6 +11,7 @@ def test_brand_page_shows_safe_hayka_defaults(authenticated_client):
     assert response.status_code == 200
     assert "هایکا" in response.text
     assert "@hayka_poshtibani" in response.text
+    assert "+989183962948" in response.text
     assert "۱۸ ماه" not in response.text
 
 
@@ -24,6 +25,7 @@ def test_admin_updates_brand_profile(authenticated_client, csrf_token):
             "audience": "کابینت‌سازان حرفه‌ای",
             "tone_guidelines": "تخصصی، حرفه‌ای و محترمانه",
             "support_handle": "hayka_poshtibani",
+            "support_phone": "+98 918 396 2948",
             "default_cta": "برای ثبت سفارش پیام دهید.",
             "approved_claim": ["ارسال رایگان به سراسر ایران"],
             "default_hashtag": ["#هایکا", "درب ممبران"],
@@ -36,6 +38,7 @@ def test_admin_updates_brand_profile(authenticated_client, csrf_token):
     page = authenticated_client.get("/admin/brand")
     assert "هر قطعه چوب، یک اثر" in page.text
     assert "@hayka_poshtibani" in page.text
+    assert "+989183962948" in page.text
 
 
 def test_brand_update_rejects_missing_csrf(authenticated_client):
@@ -45,4 +48,3 @@ def test_brand_update_rejects_missing_csrf(authenticated_client):
     )
 
     assert response.status_code == 403
-

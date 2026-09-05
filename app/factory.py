@@ -26,6 +26,11 @@ from app.publishing.rubika import RubikaAdapter
 from app.publishing.telegram import TelegramAdapter, TelegramVoicePreparer
 from app.publishing.whatsapp import WhatsAppAdapter
 from app.publishing.worker import PublishingWorker, stop_worker
+from app.support.bale import BaleSupportBot
+from app.support.openai_provider import OpenAISupportProvider
+from app.support.routes import router as support_router
+from app.support.rubika import RubikaSupportBot
+from app.support.telegram import TelegramSupportBot
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -50,12 +55,19 @@ def create_app(settings: Settings) -> FastAPI:
         raise ValueError("CONTENT_PROVIDER must be either 'template' or 'openai'")
 
     image_editor = None
+    support_provider = None
     if openai_api_key:
         image_editor = OpenAIImageEditor(
             api_key=openai_api_key,
             model=settings.openai_image_model,
             quality=settings.openai_image_quality,
             timeout_seconds=settings.openai_image_timeout_seconds,
+        )
+        support_provider = OpenAISupportProvider(
+            api_key=openai_api_key,
+            model=settings.openai_text_model,
+            embedding_model=settings.openai_embedding_model,
+            timeout_seconds=settings.openai_timeout_seconds,
         )
 
     telegram_bot_token = (
@@ -127,9 +139,14 @@ def create_app(settings: Settings) -> FastAPI:
         )
         platform_adapters["whatsapp"] = whatsapp_adapter
 
+    telegram_support_bot = None
+    bale_support_bot = None
+    rubika_support_bot = None
+
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         worker_task = None
+        support_tasks = []
         if settings.publishing_worker_enabled:
             worker = PublishingWorker(
                 _app.state.session_factory,
@@ -138,10 +155,19 @@ def create_app(settings: Settings) -> FastAPI:
                 poll_seconds=settings.publishing_poll_seconds,
             )
             worker_task = asyncio.create_task(worker.run_forever())
+        for support_bot in (
+            telegram_support_bot,
+            bale_support_bot,
+            rubika_support_bot,
+        ):
+            if support_bot is not None:
+                support_tasks.append(asyncio.create_task(support_bot.run_forever()))
         try:
             yield
         finally:
             await stop_worker(worker_task)
+            for support_task in support_tasks:
+                await stop_worker(support_task)
             for resource in (
                 provider,
                 image_editor,
@@ -149,6 +175,10 @@ def create_app(settings: Settings) -> FastAPI:
                 bale_adapter,
                 rubika_adapter,
                 whatsapp_adapter,
+                support_provider,
+                telegram_support_bot,
+                bale_support_bot,
+                rubika_support_bot,
             ):
                 close = getattr(resource, "close", None)
                 if close is not None:
@@ -160,7 +190,59 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.session_factory = build_session_factory(app.state.engine)
     app.state.content_provider = provider
     app.state.image_editor = image_editor
+    app.state.support_provider = support_provider
     app.state.platform_adapters = platform_adapters
+    if settings.telegram_support_enabled:
+        if not telegram_bot_token:
+            raise ValueError(
+                "TELEGRAM_BOT_TOKEN is required when TELEGRAM_SUPPORT_ENABLED=true"
+            )
+        if support_provider is None:
+            raise ValueError(
+                "OPENAI_API_KEY is required when TELEGRAM_SUPPORT_ENABLED=true"
+            )
+        telegram_support_bot = TelegramSupportBot(
+            bot_token=telegram_bot_token,
+            session_factory=app.state.session_factory,
+            provider=support_provider,
+            poll_timeout_seconds=settings.telegram_support_poll_timeout_seconds,
+            retry_seconds=settings.telegram_support_retry_seconds,
+        )
+    app.state.telegram_support_bot = telegram_support_bot
+    if settings.bale_support_enabled:
+        if not bale_bot_token:
+            raise ValueError(
+                "BALE_BOT_TOKEN is required when BALE_SUPPORT_ENABLED=true"
+            )
+        if support_provider is None:
+            raise ValueError(
+                "OPENAI_API_KEY is required when BALE_SUPPORT_ENABLED=true"
+            )
+        bale_support_bot = BaleSupportBot(
+            bot_token=bale_bot_token,
+            session_factory=app.state.session_factory,
+            provider=support_provider,
+            poll_timeout_seconds=settings.telegram_support_poll_timeout_seconds,
+            retry_seconds=settings.telegram_support_retry_seconds,
+        )
+    app.state.bale_support_bot = bale_support_bot
+    if settings.rubika_support_enabled:
+        if not rubika_bot_token:
+            raise ValueError(
+                "RUBIKA_BOT_TOKEN is required when RUBIKA_SUPPORT_ENABLED=true"
+            )
+        if support_provider is None:
+            raise ValueError(
+                "OPENAI_API_KEY is required when RUBIKA_SUPPORT_ENABLED=true"
+            )
+        rubika_support_bot = RubikaSupportBot(
+            bot_token=rubika_bot_token,
+            session_factory=app.state.session_factory,
+            provider=support_provider,
+            retry_seconds=settings.telegram_support_retry_seconds,
+            poll_interval_seconds=settings.rubika_support_poll_seconds,
+        )
+    app.state.rubika_support_bot = rubika_support_bot
     app.state.telegram_default_destination = settings.telegram_default_destination.strip()
     app.state.platform_default_destinations = {
         "sandbox": "کانال آزمایشی",
@@ -187,6 +269,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(brand_router)
     app.include_router(content_router)
     app.include_router(publishing_router)
+    app.include_router(support_router)
     app.mount(
         "/uploads/products",
         StaticFiles(directory=product_upload_root),

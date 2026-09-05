@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}دانش پاسخ‌گویی{% endblock %}
+{% block header_title %}دانش پاسخ‌گویی{% endblock %}
+{% block content %}
+<main>
+  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="/admin">نمای کلی</a><span aria-hidden="true">/</span><span aria-current="page">دانش پاسخ‌گویی</span></nav>
+  <section class="page-heading">
+    <div><span class="eyebrow">مرجع قطعی ربات مشتریان</span><h1>اطلاعات کسب‌وکار را یک‌جا وارد کنید</h1><p>شماره تماس، نشانی، قیمت، شرایط سفارش و مشخصات قطعی را در همین متن بنویسید. ربات اجازه ندارد اطلاعات اختصاصی خارج از این مرجع بسازد.</p></div>
+  </section>
+  {% if saved %}<div class="alert alert-success" role="status">اطلاعات پاسخ‌گویی ذخیره شد.</div>{% endif %}
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/support" class="brand-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <section class="panel form-card">
+      <div class="form-card-heading"><span class="step-number">۱</span><div><h2>متن مرجع کسب‌وکار</h2><p>فعلاً می‌توانید این بخش را خالی بگذارید و پس از دریافت توضیحات کارفرما تکمیل کنید.</p></div></div>
+      <div class="field">
+        <label for="support-knowledge">اطلاعات تأییدشده</label>
+        <textarea id="support-knowledge" name="content" rows="18" maxlength="100000" placeholder="مثلاً: معرفی شرکت، محصولات، مشخصات، قیمت‌ها، آدرس، شماره تماس، شرایط ارسال و پرسش‌های پرتکرار">{{ content }}</textarea>
+        <small>{{ content | length }} نویسه ذخیره شده است. تغییر این متن فقط پس از زدن دکمه ذخیره اعمال می‌شود.</small>
+      </div>
+    </section>
+    <section class="panel form-card">
+      <div class="form-card-heading"><span class="step-number">۲</span><div><h2>رفتار ثابت ربات</h2><p>این مرزها در همه پیام‌رسان‌ها یکسان خواهند بود.</p></div></div>
+      <ul class="clean-list">
+        <li>فقط گفت‌وگوی خصوصی و پیام متنی پردازش می‌شود.</li>
+        <li>اطلاعات اختصاصی فقط از متن تأییدشده و کاتالوگ محصولات خوانده می‌شود.</li>
+        <li>سؤال نامرتبط محترمانه رد می‌شود.</li>
+        <li>سؤال بدون پاسخ کافی برای بررسی ادمین ثبت خواهد شد.</li>
+      </ul>
+    </section>
+    <div class="form-actions"><a class="button button-secondary" href="/admin">بازگشت</a><button class="button button-primary" type="submit">ذخیره اطلاعات پاسخ‌گویی</button></div>
+  </form>
+  <form method="post" action="/admin/support/test" class="brand-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <section class="panel form-card">
+      <div class="form-card-heading"><span class="step-number">۳</span><div><h2>تست پاسخ ربات</h2><p>پس از ذخیره متن مرجع، یک سؤال واقعی مشتری را امتحان کنید. این تست هنوز پیامی به پیام‌رسان‌ها نمی‌فرستد.</p></div></div>
+      {% if not provider_available %}<div class="alert alert-error" role="status">OpenAI برای پاسخ‌گویی تنظیم نشده است؛ فعلاً فقط می‌توانید متن مرجع را ذخیره کنید.</div>{% endif %}
+      <div class="field">
+        <label for="support-question">سؤال آزمایشی مشتری</label>
+        <textarea id="support-question" name="question" rows="3" maxlength="2000" placeholder="مثلاً: ارسال به شهرستان هم دارید؟">{{ question }}</textarea>
+        <small>ربات از جست‌وجوی واژه‌ای و معنایی استفاده می‌کند و اجازه ساخت اطلاعات اختصاصی تازه را ندارد.</small>
+      </div>
+      <div class="form-actions"><button class="button button-primary" type="submit"{% if not provider_available %} disabled{% endif %}>بررسی پاسخ هوشمند</button></div>
+    </section>
+  </form>
+  {% if reply %}
+    <section class="panel form-card" id="support-test-result" aria-live="polite">
+      <div class="form-card-heading"><span class="step-number">✓</span><div><h2>نتیجه تست</h2><p>تصمیم موتور: {{ reply.decision.value }}</p></div></div>
+      <div class="field">
+        <label>پاسخ ربات</label>
+        <div class="alert {{ 'alert-success' if not reply.needs_admin else 'alert-warning' }}" role="status" data-persistent>{{ reply.text }}</div>
+      </div>
+      {% if source_texts %}
+        <div class="field"><label>بخش‌های استفاده‌شده از مرجع</label><ul class="clean-list">{% for source in source_texts %}<li>{{ source }}</li>{% endfor %}</ul></div>
+      {% endif %}
+    </section>
+  {% endif %}
+</main>
+{% endblock %}

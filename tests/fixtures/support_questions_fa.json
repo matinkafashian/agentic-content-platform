@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "question": "شماره تماس مدیریت هایکا چیست؟",
+    "expected_decision": "grounded",
+    "expected_fact": "+989183962948"
+  },
+  {
+    "id": 2,
+    "question": "راه ارتباط با پشتیبانی در پیام‌رسان چیست؟",
+    "expected_decision": "grounded",
+    "expected_fact": "@hayka_poshtibani"
+  },
+  {
+    "id": 3,
+    "question": "قیمت هر متر درب ممبران نئوکلاسیک چقدر است؟",
+    "expected_decision": "grounded",
+    "expected_fact": "برای قیمت روز با شماره +989183962948 تماس بگیرید"
+  },
+  {
+    "id": 4,
+    "question": "ممبران چیست؟",
+    "expected_decision": "grounded",
+    "expected_fact": "روکش PVC روی مغزی MDF ابزارخورده"
+  },
+  {
+    "id": 5,
+    "question": "مراحل تولید درب ممبران را توضیح می‌دهید؟",
+    "expected_decision": "grounded",
+    "expected_fact": "CNC، سمباده و چسب، سپس پرس وکیوم"
+  },
+  {
+    "id": 6,
+    "question": "از چه چسبی برای روکش استفاده می‌کنید؟",
+    "expected_decision": "grounded",
+    "expected_fact": "KLEIBERIT 435"
+  },
+  {
+    "id": 7,
+    "question": "آیا روکش کابینت نزدیک گاز بلند می‌شود؟",
+    "expected_decision": "grounded",
+    "expected_fact": "چسب کلیبریت ۴۳۵ مقاومت حرارتی بالایی دارد"
+  },
+  {
+    "id": 8,
+    "question": "ضخامت و برند روکش‌ها چیست؟",
+    "expected_decision": "grounded",
+    "expected_fact": "۰.۳۵ میلی‌متر از برندهای زینو و نوین چوب"
+  },
+  {
+    "id": 9,
+    "question": "سفارش چند روزه آماده می‌شود؟",
+    "expected_decision": "grounded",
+    "expected_fact": "۴ روز کاری پس از ثبت نهایی سفارش"
+  },
+  {
+    "id": 10,
+    "question": "محصولات شما چند ماه گارانتی دارند؟",
+    "expected_decision": "grounded",
+    "expected_fact": "۱۸ ماه گارانتی عدم جدایش روکش"
+  },
+  {
+    "id": 11,
+    "question": "درب کابینت کلاسیک هم تولید می‌کنید؟",
+    "expected_decision": "grounded",
+    "expected_fact": "طرح‌های پرکار و دارای منبت"
+  },
+  {
+    "id": 12,
+    "question": "درب ممبران نئوکلاسیک شما چه ظاهری دارد؟",
+    "expected_decision": "grounded",
+    "expected_fact": "طرح‌های مینیمال‌تر و خطوط صاف"
+  },
+  {
+    "id": 13,
+    "question": "کاور هود ممبران هم دارید؟",
+    "expected_decision": "grounded",
+    "expected_fact": "کاور هود ممبران یکپارچه"
+  },
+  {
+    "id": 14,
+    "question": "چه قطعات CNC کابینتی تولید می‌کنید؟",
+    "expected_decision": "grounded",
+    "expected_fact": "تاج، زیرچراغ، ستون، سرستون و پاخور"
+  },
+  {
+    "id": 15,
+    "question": "نرم‌افزار ثبت آنلاین سفارش آماده شده است؟",
+    "expected_decision": "grounded",
+    "expected_fact": "در فاز توسعه است"
+  },
+  {
+    "id": 16,
+    "question": "آدرس کارخانه هایکا کجاست؟",
+    "expected_decision": "handoff",
+    "expected_fact": "آدرس در پایگاه دانش ثبت نشده و باید از پشتیبانی پرسیده شود"
+  },
+  {
+    "id": 17,
+    "question": "برای پروژه من کدام محصول بهتر است؟",
+    "expected_decision": "clarification",
+    "expected_fact": "برای پیشنهاد مطمئن باید نیاز و سبک پروژه روشن شود"
+  },
+  {
+    "id": 18,
+    "question": "درب ممبران را چطور تمیز کنم؟",
+    "expected_decision": "general_guidance",
+    "expected_fact": "راهنمای عمومی مرتبط، بدون ساخت ادعای اختصاصی هایکا"
+  },
+  {
+    "id": 19,
+    "question": "امروز چه رنگ روکش‌هایی موجود دارید؟",
+    "expected_decision": "handoff",
+    "expected_fact": "موجودی لحظه‌ای در پایگاه دانش ثبت نشده است"
+  },
+  {
+    "id": 20,
+    "question": "نتیجه بازی فوتبال امشب چیست؟",
+    "expected_decision": "irrelevant",
+    "expected_fact": "رد محترمانه سؤال نامرتبط"
+  }
+]

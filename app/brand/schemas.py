@@ -3,6 +3,8 @@ import re
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 HANDLE_PATTERN = re.compile(r"^@[A-Za-z0-9_]{3,64}$")
+PHONE_PATTERN = re.compile(r"^\+?[0-9]{7,15}$")
+PERSIAN_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
 
 
 def normalize_hashtag(value: str) -> str:
@@ -17,6 +19,11 @@ def normalize_handle(value: str) -> str:
     return normalized
 
 
+def normalize_phone(value: str) -> str:
+    translated = value.strip().translate(PERSIAN_DIGITS)
+    return re.sub(r"[\s()\-]", "", translated)
+
+
 class BrandProfileInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -25,6 +32,7 @@ class BrandProfileInput(BaseModel):
     audience: str = Field(default="", max_length=500)
     tone_guidelines: str = Field(default="", max_length=2000)
     support_handle: str = Field(min_length=4, max_length=65)
+    support_phone: str = Field(default="", max_length=32)
     default_cta: str = Field(default="", max_length=500)
     approved_claims: list[str] = Field(default_factory=list, max_length=20)
     default_hashtags: list[str] = Field(default_factory=list, max_length=20)
@@ -35,6 +43,7 @@ class BrandProfileInput(BaseModel):
         "audience",
         "tone_guidelines",
         "support_handle",
+        "support_phone",
         "default_cta",
         mode="before",
     )
@@ -50,6 +59,14 @@ class BrandProfileInput(BaseModel):
             raise ValueError("support handle must contain only latin letters, numbers, or _")
         return normalized
 
+    @field_validator("support_phone")
+    @classmethod
+    def valid_support_phone(cls, value: str) -> str:
+        normalized = normalize_phone(value)
+        if normalized and not PHONE_PATTERN.fullmatch(normalized):
+            raise ValueError("support phone must be a valid international phone number")
+        return normalized
+
     @field_validator("approved_claims")
     @classmethod
     def normalize_claims(cls, values: list[str]) -> list[str]:
@@ -61,4 +78,3 @@ class BrandProfileInput(BaseModel):
     def normalize_hashtags(cls, values: list[str]) -> list[str]:
         normalized = [normalize_hashtag(value) for value in values]
         return list(dict.fromkeys(value for value in normalized if value))
-

@@ -105,7 +105,8 @@ def test_cinematic_editor_requests_vertical_poster_canvas():
         message="از دل چوب متولد می‌شود",
     )
 
-    assert edited.data == output
+    assert edited.data != output  # Branding is applied to the generated pixels.
+    assert Image.open(BytesIO(edited.data)).size == Image.open(BytesIO(output)).size
 
 
 def test_openai_editor_posts_multipart_and_validates_returned_image():
@@ -144,7 +145,8 @@ def test_openai_editor_posts_multipart_and_validates_returned_image():
         overlay_text="زیبایی در جزئیات است",
     )
 
-    assert edited.data == output
+    assert edited.data != output  # Studio outputs receive the same branding.
+    assert Image.open(BytesIO(edited.data)).size == Image.open(BytesIO(output)).size
     assert edited.width == 48
     assert edited.height == 32
     assert edited.suffix == ".png"

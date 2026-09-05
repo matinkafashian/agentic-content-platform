@@ -16,6 +16,7 @@ class BrandProfile(Base):
     audience: Mapped[str] = mapped_column(String(500), default="")
     tone_guidelines: Mapped[str] = mapped_column(Text, default="")
     support_handle: Mapped[str] = mapped_column(String(200), default="")
+    support_phone: Mapped[str] = mapped_column(String(32), default="")
     default_cta: Mapped[str] = mapped_column(String(500), default="")
     approved_claims: Mapped[list[str]] = mapped_column(JSON, default=list)
     default_hashtags: Mapped[list[str]] = mapped_column(JSON, default=list)
@@ -23,4 +24,3 @@ class BrandProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=utc_now, onupdate=utc_now
     )
-

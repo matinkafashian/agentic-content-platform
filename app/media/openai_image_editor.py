@@ -226,6 +226,10 @@ class OpenAIImageEditor:
             topic=topic,
             message=message,
         )
+        prompt += (
+            "\nLeave the top-right 22% corner clear for a logo and the bottom-left "
+            "edge clear for a phone label added later. Do not draw a logo or phone number."
+        )
         canvas_size = "1024x1536" if mode == "cinematic" else "auto"
         started_at = perf_counter()
         try:
@@ -281,7 +285,9 @@ class OpenAIImageEditor:
             edited.width,
             edited.height,
         )
-        return edited
+        from app.media.image_branding import brand_image
+
+        return brand_image(edited)
 
     def close(self) -> None:
         if self._owns_client:

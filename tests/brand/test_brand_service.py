@@ -15,6 +15,7 @@ def brand_input(**overrides) -> BrandProfileInput:
         "audience": "کابینت‌سازان حرفه‌ای",
         "tone_guidelines": "تخصصی و محترمانه",
         "support_handle": "hayka_poshtibani",
+        "support_phone": "+98 918 396 2948",
         "default_cta": "برای ثبت سفارش پیام دهید.",
         "approved_claims": [" ارسال سراسر ایران ", "", "ارسال سراسر ایران"],
         "default_hashtags": ["#درب ممبران", "درب_ممبران", " هایکا "],
@@ -28,6 +29,7 @@ def test_brand_input_normalizes_handle_claims_and_hashtags():
 
     assert data.business_name == "هایکا"
     assert data.support_handle == "@hayka_poshtibani"
+    assert data.support_phone == "+989183962948"
     assert data.approved_claims == ["ارسال سراسر ایران"]
     assert data.default_hashtags == ["درب_ممبران", "هایکا"]
 
@@ -44,6 +46,7 @@ def test_get_or_create_uses_safe_defaults_without_sales_claims(db_session):
 
     assert profile.business_name == "هایکا"
     assert profile.support_handle == "@hayka_poshtibani"
+    assert profile.support_phone == "+989183962948"
     assert profile.approved_claims == []
     assert profile.default_hashtags == ["هایکا", "درب_ممبران", "نئوکلاسیک"]
 

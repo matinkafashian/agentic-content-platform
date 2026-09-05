@@ -8,6 +8,7 @@ DEFAULT_BRAND = BrandProfileInput(
     audience="کابینت‌سازان حرفه‌ای",
     tone_guidelines="تخصصی، حرفه‌ای، مطمئن و روان",
     support_handle="@hayka_poshtibani",
+    support_phone="+989183962948",
     default_cta="برای دریافت مشاوره و ثبت سفارش پیام دهید.",
     approved_claims=[],
     default_hashtags=["هایکا", "درب_ممبران", "نئوکلاسیک"],

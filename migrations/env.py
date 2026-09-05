@@ -11,6 +11,7 @@ from app.content import models as content_models  # noqa: F401
 from app.core.database import Base
 from app.media import models as media_models  # noqa: F401
 from app.publishing import models as publishing_models  # noqa: F401
+from app.support import models as support_models  # noqa: F401
 
 config = context.config
 
