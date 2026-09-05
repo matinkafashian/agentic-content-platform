@@ -5,6 +5,7 @@ from pathlib import Path
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from app.admin import models as admin_models  # noqa: F401
 from app.brand import models as brand_models  # noqa: F401
 from app.catalog import models  # noqa: F401
 from app.content import models as content_models  # noqa: F401

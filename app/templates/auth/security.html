@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}امنیت حساب{% endblock %}
+{% block header_title %}امنیت حساب{% endblock %}
+{% block content %}
+<main data-page="security">
+  <nav class="breadcrumbs" aria-label="مسیر صفحه"><a href="/admin">نمای کلی</a><span aria-hidden="true">/</span><span aria-current="page">امنیت حساب</span></nav>
+  <section class="page-heading page-heading-compact">
+    <div><span class="section-kicker">دسترسی مدیر</span><h1>تغییر رمز ورود</h1><p>پس از تغییر رمز، تمام نشست‌های قبلی مدیر از سامانه خارج می‌شوند.</p></div>
+  </section>
+  {% if changed %}<div class="alert alert-success" role="status"><strong>رمز ورود با موفقیت تغییر کرد.</strong> از این پس فقط رمز جدید معتبر است.</div>{% endif %}
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/security" class="security-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <section class="panel form-card security-card">
+      <div class="form-card-heading"><span class="step-number" aria-hidden="true">●</span><div><h2>رمز مدیر سامانه</h2><p>رمزی طولانی و منحصربه‌فرد انتخاب کنید و آن را در اختیار افراد غیرمجاز قرار ندهید.</p></div></div>
+      <div class="field-grid">
+        <div class="field field-wide"><label for="current-password">رمز فعلی <span>*</span></label><input id="current-password" name="current_password" type="password" autocomplete="current-password" required></div>
+        <div class="field"><label for="new-password">رمز جدید <span>*</span></label><input id="new-password" name="new_password" type="password" minlength="10" autocomplete="new-password" required><small>حداقل ۱۰ نویسه و متفاوت با رمز فعلی</small></div>
+        <div class="field"><label for="confirm-password">تکرار رمز جدید <span>*</span></label><input id="confirm-password" name="confirm_password" type="password" minlength="10" autocomplete="new-password" required></div>
+      </div>
+    </section>
+    <div class="form-actions"><a class="button button-secondary" href="/admin">انصراف</a><button class="button button-primary" type="submit">تغییر رمز و خروج نشست‌های قبلی</button></div>
+  </form>
+</main>
+{% endblock %}
