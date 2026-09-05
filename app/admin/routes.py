@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.admin.dependencies import require_admin
+from app.admin.reporting import DashboardReportingService
 from app.catalog.repository import ProductRepository
 from app.core.database import get_db
 from app.core.security import ensure_csrf_token, validate_csrf, verify_password
@@ -64,6 +65,7 @@ def dashboard(
     request: Request,
     admin: Annotated[str, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
+    days: int = 30,
 ):
     repository = ProductRepository(db)
     total_products = repository.count()
@@ -83,6 +85,7 @@ def dashboard(
             "products_with_image": products_with_image,
             "active_rate": active_rate,
             "recent_products": repository.list(limit=5),
+            "report": DashboardReportingService(db).build(days=days),
         },
     )
 

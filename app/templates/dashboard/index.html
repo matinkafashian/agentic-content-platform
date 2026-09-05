@@ -1,18 +1,91 @@
 {% extends "base.html" %}
-{% block title %}نمای کلی{% endblock %}
-{% block header_title %}نمای کلی{% endblock %}
+{% block title %}نمای کلی و گزارش‌ها{% endblock %}
+{% block header_title %}نمای کلی و گزارش‌ها{% endblock %}
 {% block content %}
 <main data-page="dashboard">
-  <section class="page-heading">
+  <section class="page-heading report-heading">
     <div>
-      <span class="section-kicker">امروز در یک نگاه</span>
-      <h1>سلام، آماده‌ای محتوای بعدی را بسازیم؟</h1>
-      <p>محصولات را دقیق نگه دارید؛ تولید محتوا، بسته نهایی و صف انتشار روی همین اطلاعات قابل اعتماد بنا می‌شوند.</p>
+      <span class="section-kicker">عملکرد کسب‌وکار در یک نگاه</span>
+      <h1>گزارش روشن از محتوا، انتشار و پاسخ‌گویی</h1>
+      <p>اعداد این صفحه مستقیماً از ارسال‌های واقعی و گفت‌وگوهای ثبت‌شده ربات محاسبه می‌شوند.</p>
     </div>
-    <a class="button button-primary" href="/admin/products/new" data-action="create-product">
-      <span aria-hidden="true">＋</span> افزودن محصول
-    </a>
+    <div class="report-heading-actions">
+      <nav class="range-switch" aria-label="بازه گزارش">
+        <a href="/admin?days=7" class="{{ 'is-current' if report.range_days == 7 else '' }}">۷ روز</a>
+        <a href="/admin?days=30" class="{{ 'is-current' if report.range_days == 30 else '' }}">۳۰ روز</a>
+      </nav>
+      <a class="button button-primary" href="/admin/products/new" data-action="create-product"><span aria-hidden="true">＋</span> افزودن محصول</a>
+    </div>
   </section>
+
+  <section class="metrics-grid report-metrics" aria-label="شاخص‌های اصلی {{ report.range_label }}">
+    <article class="metric-card metric-active" data-metric="successful-publications" data-value="{{ report.successful_publications }}">
+      <div class="metric-icon" aria-hidden="true">✓</div>
+      <div><span>ارسال موفق</span><strong>{{ report.successful_publications | fa_digits }}</strong><small>{{ report.range_label | fa_digits }}</small></div>
+    </article>
+    <article class="metric-card metric-ready" data-metric="publication-success-rate" data-value="{{ report.publication_success_rate }}">
+      <div class="metric-icon" aria-hidden="true">٪</div>
+      <div><span>نرخ موفقیت نهایی</span><strong>{{ report.publication_success_rate | fa_digits }}٪</strong><small>{{ report.failed_publications | fa_digits }} ارسال ناموفق</small></div>
+    </article>
+    <article class="metric-card metric-support" data-metric="support-questions" data-value="{{ report.support_questions }}">
+      <div class="metric-icon" aria-hidden="true">؟</div>
+      <div><span>پیام مشتریان</span><strong>{{ report.support_questions | fa_digits }}</strong><small>{{ report.admin_handoffs | fa_digits }} ارجاع به ادمین</small></div>
+    </article>
+    <article class="metric-card metric-speed" data-metric="average-response-seconds">
+      <div class="metric-icon" aria-hidden="true">◷</div>
+      <div><span>میانگین زمان پاسخ</span>{% if report.average_response_seconds is not none %}<strong>{{ report.average_response_seconds | fa_digits }} ثانیه</strong><small>بر اساس ۵۰۰ پاسخ اخیر این بازه</small>{% else %}<strong>—</strong><small>هنوز پاسخ ثبت‌شده‌ای وجود ندارد</small>{% endif %}</div>
+    </article>
+  </section>
+
+  <section class="report-grid">
+    <article class="panel platform-report" data-report="platform-delivery">
+      <div class="panel-heading"><div><span class="section-kicker">سلامت کانال‌ها</span><h2>موفقیت انتشار در هر پلتفرم</h2></div><a class="text-link" href="/admin/publishing">جزئیات ارسال‌ها</a></div>
+      <div class="platform-metrics">
+        {% for item in report.platforms %}
+          <div class="platform-metric" data-platform="{{ item.key }}">
+            <div class="platform-metric-heading"><strong>{{ item.label }}</strong>{% if item.succeeded + item.failed %}<span>{{ item.success_rate | fa_digits }}٪ موفق</span>{% else %}<span>بدون ارسال نهایی</span>{% endif %}</div>
+            <div class="report-progress" role="progressbar" aria-label="نرخ موفقیت {{ item.label }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ item.success_rate }}"><span style="width: {{ item.success_rate }}%"></span></div>
+            <small>{{ item.succeeded | fa_digits }} موفق · {{ item.failed | fa_digits }} ناموفق · {{ item.pending | fa_digits }} در انتظار</small>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="panel daily-report" data-report="daily-activity">
+      <div class="panel-heading"><div><span class="section-kicker">روند فعالیت</span><h2>ارسال و سؤال‌های روزانه</h2></div><div class="chart-legend" aria-label="راهنمای نمودار"><span><i class="legend-publication"></i>ارسال</span><span><i class="legend-question"></i>سؤال</span></div></div>
+      <div class="daily-chart" aria-label="نمودار فعالیت {{ report.range_label }}">
+        {% for item in report.daily %}
+          <div class="daily-column" title="{{ item.label }}: {{ item.publications }} ارسال و {{ item.questions }} سؤال">
+            <div class="daily-bars" aria-hidden="true"><span class="daily-bar publication-bar" style="height: {{ item.publication_height }}%"></span><span class="daily-bar question-bar" style="height: {{ item.question_height }}%"></span></div>
+            <small>{{ item.label | fa_digits }}</small>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <section class="report-grid report-grid-secondary">
+    <article class="panel decision-report" data-report="support-decisions">
+      <div class="panel-heading"><div><span class="section-kicker">کیفیت پاسخ‌گویی</span><h2>ربات چگونه پاسخ داده است؟</h2></div><a class="text-link" href="/admin/support">مدیریت دانش</a></div>
+      {% if report.decisions %}
+        <div class="decision-list">
+          {% for item in report.decisions %}
+            <div class="decision-row" data-decision="{{ item.key }}"><div><strong>{{ item.label }}</strong><span>{{ item.count | fa_digits }} مورد</span></div><div class="report-progress"><span style="width: {{ item.share }}%"></span></div><small>{{ item.share | fa_digits }}٪</small></div>
+          {% endfor %}
+        </div>
+      {% else %}<div class="empty-report"><span aria-hidden="true">◇</span><p>در این بازه هنوز پیامی از مشتریان ثبت نشده است.</p></div>{% endif %}
+      <div class="report-summary-line"><span><strong>{{ report.support_failures | fa_digits }}</strong> پاسخ ناموفق</span><span><strong>{{ report.admin_handoffs | fa_digits }}</strong> نیازمند پیگیری ادمین</span></div>
+    </article>
+
+    <article class="panel failure-report" data-report="latest-failures">
+      <div class="panel-heading"><div><span class="section-kicker">نیازمند اقدام</span><h2>آخرین خطاهای انتشار</h2></div></div>
+      {% if report.latest_failures %}
+        <ul class="failure-list">{% for item in report.latest_failures %}<li><span class="failure-platform">{{ item.platform_label }}</span><div><strong>ارسال شماره {{ item.publication_id | fa_digits }}</strong><p>{{ item.message }}</p></div><a class="text-link" href="/admin/publishing">بررسی</a></li>{% endfor %}</ul>
+      {% else %}<div class="empty-report empty-report-success"><span aria-hidden="true">✓</span><p>در این بازه خطای نهایی ثبت نشده است.</p></div>{% endif %}
+    </article>
+  </section>
+
+  <section class="catalog-report-heading"><div><span class="section-kicker">آمادگی تولید محتوا</span><h2>وضعیت کاتالوگ</h2></div><p>{{ report.created_drafts | fa_digits }} پیش‌نویس ساخته شده و {{ report.approved_drafts | fa_digits }} پیش‌نویس تأییدشده در {{ report.range_label | fa_digits }}</p></section>
 
   <section class="metrics-grid" aria-label="شاخص‌های کاتالوگ">
     <article class="metric-card metric-total" data-metric="total-products" data-value="{{ total_products }}">
@@ -25,7 +98,7 @@
     </article>
     <article class="metric-card metric-ready" data-metric="products-with-image" data-value="{{ products_with_image }}">
       <div class="metric-icon" aria-hidden="true">◈</div>
-      <div><span>دارای تصویر</span><strong>{{ products_with_image | fa_digits }}</strong><small>دارای فایل معتبر و امن</small></div>
+      <div><span>دارای تصویر</span><strong>{{ products_with_image | fa_digits }}</strong><small>تصویر برای انتشار اختیاری است</small></div>
     </article>
   </section>
 

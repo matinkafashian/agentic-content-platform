@@ -17,6 +17,13 @@ def test_dashboard_has_useful_phase_one_metrics(authenticated_client):
     assert 'dir="rtl"' in response.text
     assert 'data-metric="total-products"' in response.text
     assert 'data-metric="active-products"' in response.text
+    assert 'data-metric="successful-publications"' in response.text
+    assert 'data-report="platform-delivery"' in response.text
+    assert 'data-platform="telegram"' in response.text
+    assert 'data-report="daily-activity"' in response.text
+    assert 'data-report="support-decisions"' in response.text
+    assert 'data-report="latest-failures"' in response.text
+    assert 'href="/admin?days=7"' in response.text
     assert 'data-value="2"' in response.text
     assert 'data-value="1"' in response.text
     assert 'data-action="create-product"' in response.text
@@ -37,6 +44,8 @@ def test_dashboard_static_assets_are_served(authenticated_client):
     assert ".workflow-section-summary" in stylesheet.text
     assert "min-height: 2.75rem" in stylesheet.text
     assert "scroll-behavior: smooth" not in stylesheet.text
+    assert ".daily-chart" in stylesheet.text
+    assert ".platform-metric" in stylesheet.text
     assert script.status_code == 200
     assert "data-nav-toggle" in script.text
     assert persian_font.status_code == 200
