@@ -1,0 +1,24 @@
+[Unit]
+Description=Hayka WhatsApp publishing bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hayka
+Group=hayka
+WorkingDirectory=/opt/hayka/current
+EnvironmentFile=/etc/hayka/app.env
+ExecStart=/usr/bin/npm --prefix /opt/hayka/current/services/whatsapp-bridge start
+Restart=on-failure
+RestartSec=8
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hayka
+
+[Install]
+WantedBy=multi-user.target

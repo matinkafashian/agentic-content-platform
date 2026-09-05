@@ -33,6 +33,8 @@
 - یک OpenAI API Key دارای Billing فقط برای حالت `openai`.
 - FFmpeg برای ارسال ضبط WebM مرورگر به شکل Voice تلگرام بدون بازکدگذاری صدا.
 
+برای استقرار دائمی روی VPS، فایل‌های systemd، Nginx، n8n و بکاپ در [`deploy/README.md`](deploy/README.md) آماده شده‌اند. هسته انتشار باید با یک worker اجرا شود تا polling ربات‌ها و ارسال‌ها تکراری نشود.
+
 در Windows PowerShell از ریشه پروژه اجرا کنید:
 
 ```powershell
@@ -77,6 +79,19 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_DEFAULT_DESTINATION=
 TELEGRAM_TIMEOUT_SECONDS=30
 TELEGRAM_FFMPEG_BINARY=ffmpeg
+TELEGRAM_SUPPORT_ENABLED=false
+TELEGRAM_SUPPORT_POLL_TIMEOUT_SECONDS=20
+TELEGRAM_SUPPORT_RETRY_SECONDS=3
+BALE_BOT_TOKEN=
+BALE_DEFAULT_DESTINATION=
+BALE_SUPPORT_ENABLED=false
+RUBIKA_BOT_TOKEN=
+RUBIKA_DEFAULT_DESTINATION=
+RUBIKA_SUPPORT_ENABLED=false
+RUBIKA_SUPPORT_POLL_SECONDS=5
+WHATSAPP_BRIDGE_URL=http://127.0.0.1:8780
+WHATSAPP_BRIDGE_TOKEN=
+WHATSAPP_DEFAULT_DESTINATION=
 PUBLISHING_WORKER_ENABLED=true
 PUBLISHING_POLL_SECONDS=15
 DEBUG=false
