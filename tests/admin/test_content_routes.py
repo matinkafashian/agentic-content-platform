@@ -67,6 +67,13 @@ def test_content_pages_redirect_anonymous_user(client):
     assert response.headers["location"] == "/admin/login"
 
 
+def test_content_index_redirects_to_new_content_form(authenticated_client):
+    response = authenticated_client.get("/admin/content", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/admin/content/new"
+
+
 def test_admin_generates_content_from_short_brief(
     authenticated_client, csrf_token, product
 ):

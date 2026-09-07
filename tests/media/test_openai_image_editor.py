@@ -120,6 +120,7 @@ def test_openai_editor_posts_multipart_and_validates_returned_image():
         assert b'name="image[]"' in body
         assert b'name="quality"' in body and b'high' in body
         assert b'Do not recolor the product' in body
+        assert b'bottom-right 22% corner clear for a logo' in body
         return httpx.Response(
             200,
             request=request,

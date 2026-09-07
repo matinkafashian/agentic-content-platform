@@ -26,7 +26,7 @@ def brand_image(image: ValidatedImage) -> ValidatedImage:
         logo.thumbnail((size, size), Image.Resampling.LANCZOS)
         mask = Image.new('L', logo.size)
         ImageDraw.Draw(mask).ellipse((0, 0, logo.width - 1, logo.height - 1), fill=255)
-        canvas.paste(logo, (width - margin - logo.width, margin), mask)
+        canvas.paste(logo, (width - margin - logo.width, height - margin - logo.height), mask)
     draw = ImageDraw.Draw(canvas)
     font = ImageFont.load_default(size=max(1, round(min(width, height) * 0.025)))
     box = draw.textbbox((0, 0), PHONE, font=font)

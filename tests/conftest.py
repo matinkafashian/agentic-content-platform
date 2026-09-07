@@ -25,6 +25,7 @@ def admin_credentials() -> dict[str, str]:
 @pytest.fixture
 def client(tmp_path, admin_credentials) -> TestClient:
     settings = Settings(
+        _env_file=None,
         database_url=f"sqlite:///{tmp_path / 'test.db'}",
         upload_dir=tmp_path / "uploads",
         secret_key="test-secret-key-that-is-at-least-32-characters",

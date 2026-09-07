@@ -650,3 +650,39 @@ def test_publishing_ui_has_one_clear_immediate_action_and_optional_schedule(
     assert "با تغییر این گزینه هیچ پستی ارسال نمی‌شود" in publishing.text
     assert "ذخیره حالت" not in publishing.text
     assert "بررسی همین حالا" not in publishing.text
+
+
+def test_missing_schedule_time_returns_to_content_with_readable_feedback(
+    authenticated_client, csrf_token, product, png_upload
+):
+    _set_product_image(authenticated_client, product, png_upload)
+    draft_id = _draft_id(authenticated_client, csrf_token, product)
+    authenticated_client.post(
+        f"/admin/content/{draft_id}/approve",
+        data={"csrf_token": csrf_token},
+    )
+    authenticated_client.post(
+        f"/admin/content/{draft_id}/bundle",
+        data={"csrf_token": csrf_token},
+    )
+    detail = authenticated_client.get(f"/admin/content/{draft_id}")
+    bundle_id = re.search(
+        r'action="/admin/publishing/bundles/(\d+)/schedule"', detail.text
+    ).group(1)
+
+    response = authenticated_client.post(
+        f"/admin/publishing/bundles/{bundle_id}/schedule",
+        data={
+            "csrf_token": csrf_token,
+            "platform": "all",
+            "delivery_action": "schedule",
+            "scheduled_for": "",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"].startswith(f"/admin/content/{draft_id}?")
+    feedback = authenticated_client.get(response.headers["location"])
+    assert "برای زمان‌بندی، تاریخ و ساعت را انتخاب کنید" in feedback.text
+    assert 'class="alert alert-error"' in feedback.text

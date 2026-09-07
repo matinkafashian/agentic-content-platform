@@ -1,17 +1,29 @@
 (() => {
   document.querySelectorAll('[data-delivery-form]').forEach((form) => {
+    const scheduledField = form.querySelector("input[name='scheduled_for']");
+    scheduledField?.addEventListener("input", () => scheduledField.setCustomValidity(""));
     form.addEventListener('submit', (event) => {
       if (form.dataset.sending === 'true') {
         event.preventDefault();
         return;
       }
-      if (event.defaultPrevented || event.submitter?.value !== 'send_now') return;
+      const action = event.submitter?.value;
+      if (action === 'schedule' && scheduledField && !scheduledField.value.trim()) {
+        event.preventDefault();
+        const schedulePanel = scheduledField.closest('details');
+        if (schedulePanel) schedulePanel.open = true;
+        scheduledField.setCustomValidity('برای زمان‌بندی، تاریخ و ساعت را انتخاب کنید.');
+        scheduledField.reportValidity();
+        scheduledField.focus();
+        return;
+      }
+      if (event.defaultPrevented || action !== 'send_now') return;
       form.dataset.sending = 'true';
       form.setAttribute('aria-busy', 'true');
       const stack = document.createElement('div');
       stack.className = 'toast-stack';
       const notice = document.createElement('div');
-      notice.className = 'alert toast-notification';
+      notice.className = 'alert alert-warning toast-notification';
       notice.setAttribute('role', 'status');
       notice.textContent = '⏳ پیام‌ها در حال ارسال هستند؛ لطفاً تا نمایش نتیجه این صفحه را باز نگه دارید.';
       stack.append(notice);

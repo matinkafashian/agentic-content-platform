@@ -262,6 +262,13 @@ def new_content_page(
     return _render_new(request, db, selected_product_id=product_id)
 
 
+@router.get("")
+def content_index(
+    _admin: Annotated[str, Depends(require_admin)],
+):
+    return RedirectResponse("/admin/content/new", status_code=303)
+
+
 @router.post("", response_class=HTMLResponse)
 def generate_content(
     request: Request,
@@ -323,11 +330,13 @@ def content_detail(
     approved: bool = False,
     rejected: bool = False,
     caption_saved: bool = False,
+    schedule_error: str = "",
 ):
     return _render_detail(
         request,
         db,
         draft_id,
+        error=schedule_error or None,
         voice_saved=voice_saved,
         image_saved=image_saved,
         bundle_saved=bundle_saved,

@@ -198,6 +198,13 @@ def schedule_bundle(
     except PublishingPaused:
         return RedirectResponse("/admin/publishing?paused=1", status_code=303)
     except ScheduleInputError as exc:
+        bundle = PublishingRepository(db).get_bundle(bundle_id)
+        if bundle is not None:
+            query = urlencode({"schedule_error": str(exc)})
+            return RedirectResponse(
+                f"/admin/content/{bundle.content_draft_id}?{query}#publishing-bundle",
+                status_code=303,
+            )
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return RedirectResponse("/admin/publishing?scheduled=1", status_code=303)
 

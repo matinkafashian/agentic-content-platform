@@ -30,7 +30,7 @@ def make_settings(
         "debug": True,
     }
     values.update(overrides)
-    return Settings(**values)
+    return Settings(_env_file=None, **values)
 
 
 def test_health_returns_service_status(tmp_path):
