@@ -10,6 +10,15 @@ from app.publishing.adapters import DeliveryResult
 from app.publishing.models import Publication
 
 
+def test_publishing_page_accepts_multi_platform_scheduled_count(authenticated_client):
+    response = authenticated_client.get("/admin/publishing?scheduled=4")
+    assert response.status_code == 200
+    assert "زمان‌بندی ۴ ارسال ثبت شد" in response.text
+    assert "هنوز ارسال نشده است" not in response.text
+    refreshed = authenticated_client.get("/admin/publishing?scheduled=4")
+    assert "هنوز ارسال نشده است" not in refreshed.text
+
+
 class SuccessfulImageEditor:
     name = "openai:gpt-image-2"
 
@@ -291,8 +300,8 @@ def test_admin_can_choose_telegram_channel_when_adapter_is_configured(
 
     assert response.status_code == 303
     feedback = authenticated_client.get(response.headers["location"])
-    assert "هنوز ارسال نشده است" in feedback.text
-    assert 'class="alert alert-warning"' in feedback.text
+    assert "این پیام تأیید ثبت زمان‌بندی است" in feedback.text
+    assert 'class="alert alert-success"' in feedback.text
     with authenticated_client.app.state.session_factory() as session:
         publication = session.scalar(select(Publication))
         assert publication.platform == "telegram"
@@ -621,6 +630,7 @@ def test_content_page_includes_configured_whatsapp_in_all_channels(
 
     assert "واتساپ" in page.text
     assert "120363123456789@g.us" in page.text
+    assert 'title="120363123456789@g.us"' in page.text
     assert 'name="platform" value="all"' in page.text
 
 

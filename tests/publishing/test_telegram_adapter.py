@@ -95,6 +95,32 @@ def test_text_only_bundle_uses_send_message(tmp_path):
     assert requests[0].url.path.endswith("/sendMessage")
 
 
+def test_message_thread_id_is_sent_for_topic_destinations(tmp_path):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            request=request,
+            json={"ok": True, "result": {"message_id": 402}},
+        )
+
+    adapter = TelegramAdapter(
+        bot_token="123:test-token",
+        upload_root=tmp_path,
+        message_thread_id=11,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    result = adapter.send(
+        _bundle(tmp_path, image_enabled=False), "-1001234567890", "topic-text"
+    )
+
+    assert result.ok is True
+    assert b"message_thread_id=11" in requests[0].content
+
+
 def test_voice_only_bundle_uses_send_voice(tmp_path):
     methods = []
 

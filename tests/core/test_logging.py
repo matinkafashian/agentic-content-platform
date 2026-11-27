@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from app.core.logging import SecretRedactionFilter, configure_logging
 
@@ -120,3 +121,29 @@ def test_rubika_upload_credential_is_redacted_from_request_url():
     rendered = record.getMessage()
     assert "private-upload-key" not in rendered
     assert "https://messengerg2f1.rubika.ir/upload/[REDACTED]" in rendered
+
+
+def test_exception_traceback_redacts_bot_token_url():
+    try:
+        raise RuntimeError(
+            "request failed for "
+            "https://api.telegram.org/bot123456:private-token/getUpdates"
+        )
+    except RuntimeError:
+        exc_info = sys.exc_info()
+
+    record = logging.LogRecord(
+        name="app.support.telegram",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=1,
+        msg="support polling failed",
+        args=(),
+        exc_info=exc_info,
+    )
+
+    SecretRedactionFilter().filter(record)
+
+    assert record.exc_text is not None
+    assert "123456:private-token" not in record.exc_text
+    assert "https://api.telegram.org/bot[REDACTED]/getUpdates" in record.exc_text

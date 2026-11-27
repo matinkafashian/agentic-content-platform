@@ -49,6 +49,9 @@ class SecretRedactionFilter(logging.Filter):
         ):
             record.msg = redacted
             record.args = ()
+        if record.exc_info:
+            exception_text = logging.Formatter().formatException(record.exc_info)
+            record.exc_text = redact_secrets(exception_text)
         return True
 
 

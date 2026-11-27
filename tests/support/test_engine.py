@@ -61,6 +61,20 @@ def test_private_text_is_delegated_to_the_central_provider():
     assert provider.calls == ["ارسال شهرستان دارید؟"]
 
 
+def test_simple_greeting_is_warm_and_does_not_call_provider():
+    provider = StubProvider(SupportReply(SupportDecision.GENERAL_GUIDANCE, "پاسخ مدل"))
+
+    result = SupportEngine(provider).respond(
+        _message(text="سلام، وقت بخیر!"),
+        _context(),
+    )
+
+    assert result.decision is SupportDecision.GENERAL_GUIDANCE
+    assert "خیلی خوش اومدید" in (result.text or "")
+    assert "محصولات، خدمات یا ثبت سفارش" in (result.text or "")
+    assert provider.calls == []
+
+
 def test_group_message_is_ignored_without_calling_provider():
     provider = StubProvider(SupportReply(SupportDecision.GENERAL_GUIDANCE, "پاسخ"))
 

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     max_voice_bytes: int = Field(default=25 * 1024 * 1024, gt=0)
     telegram_bot_token: SecretStr | None = None
     telegram_default_destination: str = ""
+    telegram_message_thread_id: int | None = Field(default=None, ge=1)
     telegram_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     telegram_ffmpeg_binary: str = "ffmpeg"
     telegram_support_enabled: bool = False

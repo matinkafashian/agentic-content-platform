@@ -91,7 +91,8 @@ def test_openai_provider_uses_responses_structured_output_and_verified_cta():
     assert payload["text"]["format"]["schema"]["properties"]["content_angle"][
         "enum"
     ] == ["product_intro"]
-    assert "body شامل ۲ تا ۳ جمله کوتاه" in payload["instructions"]
+    assert "body شامل ۳ تا ۵ جمله کوتاه" in payload["instructions"]
+    assert "شروع متنوع" in payload["instructions"]
     assert "CTA، شناسه پشتیبانی" in payload["instructions"]
     model_input = json.loads(payload["input"])
     assert model_input["approved_style_examples"] == [

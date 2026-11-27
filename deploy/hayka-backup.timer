@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Hayka backup at 04:30 Tehran
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 Asia/Tehran
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

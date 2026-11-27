@@ -8,7 +8,7 @@
   </section>
 
   {% if mode_saved %}<div class="alert alert-success" role="status">روش تأیید محتوا اعمال شد؛ هیچ پستی ارسال نشد.</div>{% endif %}
-  {% if scheduled %}<div class="alert alert-warning" role="status"><strong>{{ scheduled | fa_digits }} ارسال در صف انتشار ثبت شد؛ هنوز ارسال نشده است.</strong> نتیجه نهایی هر پلتفرم را در فهرست «وضعیت ارسال‌ها» بررسی کنید.</div>{% endif %}
+  {% if scheduled %}<div class="alert alert-success" role="status"><strong>زمان‌بندی {{ scheduled | fa_digits }} ارسال ثبت شد.</strong> این پیام تأیید ثبت زمان‌بندی است؛ وضعیت فعلی هر پلتفرم در فهرست «وضعیت ارسال‌ها» نمایش داده می‌شود.</div>{% endif %}
   {% if paused %}<div class="alert alert-warning" role="status">انتشار متوقف است؛ هیچ موردی تا فعال‌سازی دوباره ارسال نمی‌شود.</div>{% endif %}
   {% if processed %}<div class="alert alert-success" role="status">{{ processed | fa_digits }} مورد پردازش شد.</div>{% endif %}
   {% if sent and immediate_publication %}<div class="alert alert-success" role="status"><strong>پست با موفقیت ارسال شد.</strong> نتیجه در وضعیت ارسال‌ها ثبت شده است.</div>{% endif %}

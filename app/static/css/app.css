@@ -438,9 +438,9 @@ input:focus, textarea:focus, select:focus { background: white; border-color: var
 .delivery-primary-action small { color: var(--color-muted); font-size: 0.72rem; }
 .multi-platform-targets { display: grid; gap: var(--space-12); padding: var(--space-16); background: var(--color-surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
 .platform-target-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--space-12); }
-.platform-target-list > div { display: flex; justify-content: space-between; gap: var(--space-12); padding: var(--space-12); background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
-.platform-target-list span { font-weight: 850; }
-.platform-target-list small { direction: ltr; color: var(--color-muted); }
+.platform-target-list > div { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: var(--space-12); padding: var(--space-12); background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.platform-target-list span { flex: 0 0 auto; font-weight: 850; }
+.platform-target-list small { min-width: 0; overflow: hidden; direction: ltr; color: var(--color-muted); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .advanced-delivery { margin-block-start: var(--space-16); border-top: 1px solid var(--color-border); padding-block-start: var(--space-12); }
 .advanced-delivery > summary { cursor: pointer; color: var(--color-muted); font-size: 0.76rem; font-weight: 800; }
 .advanced-delivery form { margin-block-start: var(--space-16); }
@@ -581,6 +581,8 @@ input:focus, textarea:focus, select:focus { background: white; border-color: var
   .schedule-submit, .schedule-later-fields .schedule-submit { margin-block-start: 0; }
   .delivery-primary-action { align-items: stretch; flex-direction: column; }
   .delivery-primary-action .button, .schedule-later-fields .button { width: 100%; margin-block-start: 0; }
+  .platform-target-list > div { align-items: stretch; flex-direction: column; }
+  .platform-target-list small { width: 100%; }
   .schedule-form .button, .mode-options .button { width: 100%; }
   .publication-meta { justify-items: start; }
   .sandbox-notice { align-items: flex-start; flex-direction: column; }

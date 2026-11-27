@@ -77,11 +77,13 @@ class TelegramAdapter:
         *,
         bot_token: str,
         upload_root: Path,
+        message_thread_id: int | None = None,
         timeout_seconds: float = 30.0,
         client: httpx.Client | None = None,
         voice_preparer: TelegramVoicePreparer | None = None,
     ) -> None:
         self.upload_root = upload_root
+        self.message_thread_id = message_thread_id
         self._base_url = f"{self.api_base_url}/bot{bot_token}"
         self._owns_client = client is None
         self._client = client or httpx.Client(timeout=timeout_seconds)
@@ -238,7 +240,7 @@ class TelegramAdapter:
         destination: str,
         caption: str | None = None,
     ) -> DeliveryResult:
-        data = {"chat_id": destination}
+        data = self._message_data(destination)
         if caption is not None:
             data["caption"] = caption
         try:
@@ -269,7 +271,7 @@ class TelegramAdapter:
         try:
             response = self._client.post(
                 f"{self._base_url}/sendMessage",
-                data={"chat_id": destination, "text": text},
+                data={**self._message_data(destination), "text": text},
             )
         except (httpx.TimeoutException, httpx.NetworkError):
             return DeliveryResult.failure(
@@ -339,6 +341,12 @@ class TelegramAdapter:
 
     def _code(self, suffix: str) -> str:
         return f"{self.platform}_{suffix}"
+
+    def _message_data(self, destination: str) -> dict[str, str | int]:
+        data: dict[str, str | int] = {"chat_id": destination}
+        if self.message_thread_id is not None:
+            data["message_thread_id"] = self.message_thread_id
+        return data
 
     @staticmethod
     def _persian_number(value: object) -> str:

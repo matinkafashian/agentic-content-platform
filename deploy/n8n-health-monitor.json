@@ -1,0 +1,11 @@
+{
+  "id": "haykaHealthMonitor01",
+  "name": "Hayka - Panel health every 5 minutes",
+  "active": false,
+  "nodes": [
+    {"id": "schedule", "name": "Every 5 minutes", "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.2, "position": [0, 0], "parameters": {"rule": {"interval": [{"field": "minutes", "minutesInterval": 5}]}}},
+    {"id": "health", "name": "Check Hayka HTTPS", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [240, 0], "parameters": {"url": "https://panel.example.com/health", "options": {"timeout": 15000}}}
+  ],
+  "connections": {"Every 5 minutes": {"main": [[{"node": "Check Hayka HTTPS", "type": "main", "index": 0}]]}},
+  "settings": {"executionOrder": "v1", "timezone": "Asia/Tehran", "saveDataSuccessExecution": "all", "saveDataErrorExecution": "all"}
+}

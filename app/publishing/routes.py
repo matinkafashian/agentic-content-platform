@@ -57,7 +57,7 @@ def publishing_page(
     request: Request,
     _admin: Annotated[str, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
-    scheduled: bool = False,
+    scheduled: int = 0,
     processed: int = 0,
     paused: bool = False,
     mode_saved: bool = False,

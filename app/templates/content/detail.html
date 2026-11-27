@@ -226,7 +226,7 @@
         <input type="hidden" name="platform" value="all">
         <div class="multi-platform-targets">
           <strong>کانال‌های فعال این ارسال</strong>
-          <div class="platform-target-list">{% for value, label, destination in publishing_active_destinations %}<div><span>{{ label }}</span><small>{{ destination }}</small></div>{% endfor %}</div>
+          <div class="platform-target-list">{% for value, label, destination in publishing_active_destinations %}<div><span>{{ label }}</span><small title="{{ destination }}">{{ destination }}</small></div>{% endfor %}</div>
         </div>
         <div class="delivery-primary-action">
           <button class="button button-primary" type="submit" name="delivery_action" value="send_now" {{ 'disabled' if publishing_control.mode == 'paused' else '' }}>ارسال همین حالا به همه کانال‌های فعال</button>

@@ -81,6 +81,7 @@ def create_app(settings: Settings) -> FastAPI:
         telegram_adapter = TelegramAdapter(
             bot_token=telegram_bot_token,
             upload_root=settings.upload_dir,
+            message_thread_id=settings.telegram_message_thread_id,
             timeout_seconds=settings.telegram_timeout_seconds,
             voice_preparer=TelegramVoicePreparer(
                 ffmpeg_binary=settings.telegram_ffmpeg_binary

@@ -5,6 +5,7 @@
   "description": "Local WhatsApp Web bridge for the Hayka content platform",
   "main": "bridge.js",
   "scripts": {
+    "postinstall": "node patch-wwebjs-media-id.js",
     "start": "node bridge.js",
     "check": "node --check bridge.js"
   },

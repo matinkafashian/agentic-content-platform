@@ -1,0 +1,9 @@
+[Unit]
+Description=Hayka private application and n8n backup
+After=docker.service hayka-app.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hayka-backup-production
+TimeoutStartSec=20min
+UMask=0077

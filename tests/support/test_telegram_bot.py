@@ -170,7 +170,7 @@ def test_start_command_returns_welcome_without_calling_openai(tmp_path):
         bot.poll_once()
         assert provider.questions == []
         assert len(sent) == 1
-        assert "پاسخ‌گوی هایکا" in str(sent[0]["text"])
+        assert "خیلی خوش اومدید به هایکا" in str(sent[0]["text"])
         assert "پیام متنی" in str(sent[0]["text"])
         with session_factory() as db:
             interaction = db.scalar(select(SupportInteraction))

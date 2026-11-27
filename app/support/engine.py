@@ -2,6 +2,17 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
+GREETING_WORDS = frozenset(
+    {
+        "سلام",
+        "درود",
+        "سلام وقت بخیر",
+        "سلام و وقت بخیر",
+        "سلام خسته نباشید",
+        "وقت بخیر",
+    }
+)
+
 
 class SupportChatType(StrEnum):
     PRIVATE = "private"
@@ -86,6 +97,18 @@ class SupportEngine:
             return SupportReply(
                 SupportDecision.UNSUPPORTED,
                 "لطفاً سؤال خود را به‌صورت پیام متنی ارسال کنید.",
+            )
+
+        normalized_question = question.translate(str.maketrans("", "", "!؟?،,.؛:"))
+        normalized_question = " ".join(normalized_question.split())
+        if normalized_question in GREETING_WORDS:
+            return SupportReply(
+                SupportDecision.GENERAL_GUIDANCE,
+                (
+                    f"سلام، خیلی خوش اومدید به {context.business_name} 🌿\n"
+                    "خوشحال می‌شم راهنمایی‌تون کنم. هر سؤالی درباره محصولات، "
+                    "خدمات یا ثبت سفارش دارید، همین‌جا برام بنویسید 😊"
+                ),
             )
 
         if not context.knowledge_text.strip():

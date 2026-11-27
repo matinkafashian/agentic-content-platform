@@ -38,6 +38,10 @@ const acknowledgementWaiters = new Map();
 const completedRequests = new Map();
 
 const client = new Client({
+  webVersionCache: {
+    type: 'local',
+    path: path.join(runtimeRoot, 'web-cache'),
+  },
   authStrategy: new LocalAuth({
     clientId: 'hayka-content-platform',
     dataPath: sessionRoot,
