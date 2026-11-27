@@ -1,5 +1,12 @@
 # Hayka Agentic Content Platform
 
+## English overview
+
+Hayka is a FastAPI application for Persian-language content publishing and customer support. It builds content drafts from brand and catalog data, supports human review, and uses a worker for scheduled deliveries. The support module retrieves approved business information and applies confidence rules.
+
+Start with the [content service](app/content/service.py), [publishing worker tests](tests/publishing/test_worker.py), and [support tests](tests/support/). The Persian documentation below covers setup, the database, and delivery adapters.
+
+
 سامانه فارسی تولید، تأیید، زمان‌بندی و انتشار محتوای محصول در تلگرام، بله، روبیکا و واتساپ، همراه با پاسخ‌گوی هوشمند مشتری در تلگرام، بله و روبیکا.
 
 > A production-oriented Persian content operations platform built with FastAPI, SQLite/SQLAlchemy, OpenAI APIs, Telegram/Bale/Rubika Bot APIs, and an optional local WhatsApp Web bridge.
