@@ -1,14 +1,13 @@
-# چک‌لیست امنیت پیش از تحویل نهایی
+# Production handover checklist
 
-این مرحله یک شرط تحویل است و پس از پایان قابلیت‌های MVP باید با حضور مالک سامانه انجام شود.
+Complete these checks with the system owner after MVP acceptance.
 
-- حذف تمام حساب‌ها، مقصدها، توکن‌ها و رمزهای آزمایشی.
-- تولید `SECRET_KEY` جدید و مقداردهی آن فقط توسط مالک سامانه.
-- تعیین رمز اولیه مدیر توسط مالک و نگهداری فقط هش Argon2 آن.
-- [x] امکان تغییر رمز در پنل با دریافت رمز فعلی، تأیید رمز جدید، CSRF و ابطال نشست‌های قبلی پیاده‌سازی و تست شده است.
-- تعویض کلیدهای OpenAI و پیام‌رسان‌ها و بررسی اینکه هیچ کلیدی در Git، گزارش‌ها یا تصاویر باقی نمانده باشد.
-- اجرای برنامه با `DEBUG=false`، HTTPS و کوکی امن در سرور نهایی.
-- محدودسازی دسترسی فایل‌های `.env`، دیتابیس و پوشه رسانه‌های خصوصی.
-- بررسی نسخه پشتیبان و آزمون بازیابی دیتابیس و فایل‌ها.
-- مرور مجدد مجوز ربات‌ها، مقصد کانال‌ها، حالت تأیید دستی/خودکار و توقف اضطراری انتشار.
-- اجرای کامل تست‌ها و یک آزمون انتشار نهایی با حساب‌های متعلق به کارفرما.
+- Remove test accounts, destinations, tokens and passwords.
+- Generate a new owner-controlled `SECRET_KEY`. Set the administrator's initial password and store only its Argon2 hash.
+- [x] The password-change flow checks the current password, confirms the replacement, validates CSRF and invalidates previous sessions.
+- Rotate provider and bot credentials and check Git, logs and screenshots for accidental exposure.
+- Deploy with HTTPS, secure cookies and `DEBUG=false`.
+- Restrict filesystem access to environment files, the database and private media.
+- Test restoration of the database and uploaded files from backup.
+- Review bot permissions, channel destinations, approval mode and the emergency publishing pause.
+- Run the test suite and complete a controlled publishing check using owner-managed accounts.
