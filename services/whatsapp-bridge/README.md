@@ -1,28 +1,18 @@
-# WhatsApp bridge
+# WhatsApp publishing bridge
 
-این سرویس محلی، انتشار پایتون را به نشست WhatsApp Web متصل می‌کند. استفاده از آن
-رسمی نیست و ممکن است با تغییرات WhatsApp Web نیازمند به‌روزرسانی شود.
+This optional Node.js service connects the Python publisher to a linked WhatsApp Web session. It listens on loopback and requires a bearer token for operational endpoints. WhatsApp Web changes can interrupt delivery. Review the [security policy](../../SECURITY.md) and the pinned Puppeteer/Chromium dependency chain before upgrading or deploying.
 
-این bridge فقط روی `127.0.0.1` گوش می‌دهد و endpointهای عملیاتی با یک Bearer
-token تصادفی محافظت می‌شوند. کلید در اولین اجرا داخل پوشه محلی runtime ساخته
-می‌شود. زنجیره Puppeteer نسخه ۱.۳۴.۷ در زمان نگارش یک هشدار
-`npm audit` مرتبط با استخراج آرشیو Chromium دارد؛ سرویس یا پوشه session را در
-شبکه عمومی قرار ندهید و به‌روزرسانی upstream را پیش از استقرار نهایی بازبینی کنید.
+## Pair a test device
 
-## راه‌اندازی
-
-بار اول داخل پوشه سرویس نصب کنید و سپس از ریشه پروژه اجرا کنید:
+From the repository root:
 
 ```powershell
-npm install
+npm ci --prefix services/whatsapp-bridge
 npm --prefix services/whatsapp-bridge start
 ```
 
-در اولین اجرا، QR در `.whatsapp-runtime/qr.png` ساخته می‌شود. آن را از بخش
-Linked devices برنامه واتساپ اسکن کنید. نشست در `.whatsapp-session/` نگهداری
-می‌شود و کلید اتصال در `.whatsapp-runtime/bridge-token` قرار می‌گیرد. هیچ‌کدام
-نباید در Git یا نسخه پشتیبان عمومی قرار بگیرند.
+On first start, use **Linked devices** in WhatsApp to scan `.whatsapp-runtime/qr.png`. The session is stored in `.whatsapp-session/` and the generated token in `.whatsapp-runtime/bridge-token`. Treat the QR, session and token as private credentials.
 
-پس از اتصال، `GET /destinations` با هدر Bearer فهرست شناسه گروه‌ها و کانال‌های
-قابل مشاهده را برمی‌گرداند. شناسه انتخابی در `WHATSAPP_DEFAULT_DESTINATION`
-قرار می‌گیرد.
+Use the local `GET /destinations` endpoint with the bearer token to list visible groups and channels. Set `WHATSAPP_DEFAULT_DESTINATION` to the chosen group (`@g.us`) or channel (`@newsletter`), restart the Python application and test with one message in a test group. The default bridge URL is `http://127.0.0.1:8780`.
+
+The install hook applies a compatibility patch and checks the expected dependency structure. Review audit findings before upgrading the pinned version and validate media delivery against a controlled destination.
