@@ -1,283 +1,76 @@
 # Hayka Agentic Content Platform
 
-## English overview
+Hayka helps a retail team turn catalog records into reviewed product posts and answer customer questions from its own knowledge base. An operator can draft a caption, edit a product photo, record a voice note and approve exactly what will be sent. A separate customer-support workflow retrieves business information before answering private messages.
 
-Hayka is a FastAPI application for Persian-language content publishing and customer support. It builds content drafts from brand and catalog data, supports human review, and uses a worker for scheduled deliveries. The support module retrieves approved business information and applies confidence rules.
+The admin interface, generation prompts and bundled sample knowledge are designed for Persian-speaking teams. This guide is in English. You can evaluate drafting and publishing locally without API keys or messaging accounts.
 
-Start with the [content service](app/content/service.py), [publishing worker tests](tests/publishing/test_worker.py), and [support tests](tests/support/). The Persian documentation below covers setup, the database, and delivery adapters.
+## What to review
 
-
-سامانه فارسی تولید، تأیید، زمان‌بندی و انتشار محتوای محصول در تلگرام، بله، روبیکا و واتساپ، همراه با پاسخ‌گوی هوشمند مشتری در تلگرام، بله و روبیکا.
-
-> A production-oriented Persian content operations platform built with FastAPI, SQLite/SQLAlchemy, OpenAI APIs, Telegram/Bale/Rubika Bot APIs, and an optional local WhatsApp Web bridge.
-
-## نمای معماری
-
-| بخش | فناوری و مسئولیت |
+| Engineering question | Implementation |
 | --- | --- |
-| پنل و API | Python 3.12، FastAPI، Jinja2، رابط RTL واکنش‌گرا |
-| داده | SQLAlchemy، Alembic، SQLite برای استقرار تک‌سروری |
-| هوش مصنوعی | OpenAI Responses API، خروجی ساختاریافته، ویرایش تصویر و بازیابی هیبریدی دانش |
-| انتشار | Adapter مستقل برای Telegram، Bale، Rubika و WhatsApp |
-| پاسخ‌گویی | یک هسته مشترک RAG/قواعد اطمینان برای Telegram، Bale و Rubika |
-| عملیات | systemd، Nginx، n8n، بکاپ زمان‌بندی‌شده و Health Check |
+| How does the system ground a reply? | The [retriever](app/support/openai_provider.py) combines lexical overlap (40%) with embedding similarity (60%) and selects up to five passages. The [decision engine](app/support/engine.py) routes a grounded answer to human support when it lacks source references or its reported confidence is below 0.90. This threshold is a routing rule, not a measured accuracy score. |
+| What is the editor approving? | The [content service](app/content/service.py) maintains draft versions. Approving a replacement supersedes the earlier approved version. The publisher snapshots the selected caption, image and optional voice recording so later edits cannot change a queued post. |
+| What happens if delivery fails halfway? | The [publishing tests](tests/publishing/) cover scheduling and platform-specific failures. The system records external message IDs and partial deliveries so a failed follow-up voice note does not trigger a duplicate main post. |
+| Where does each integration work? | Telegram, Bale and Rubika support publishing and private customer support. WhatsApp publishing uses an optional local WhatsApp Web bridge. The sandbox simulates delivery without sending a message. |
 
-وضعیت مخزن: نسخه تحویلی MVP. تنظیمات و داده واقعی محیط تولید عمداً داخل Git نگهداری نمی‌شوند.
+Hayka is a Python 3.12 modular monolith using FastAPI, Jinja2, SQLAlchemy, Alembic and SQLite. One application worker handles scheduled deliveries and bot polling. OpenAI is optional for template-based drafts and simulated delivery. Model-generated captions, image editing and AI support require appropriate provider credentials.
 
-این مخزن یک MVP ماژولار و فارسی برای مدیریت محصول، ساخت و تأیید کپشن، نگهداری وویس اصلی و زمان‌بندی بسته نهایی انتشار است. سامانه هم تولیدکننده قالبی بدون هزینه برای تست فرایند دارد و هم Provider واقعی OpenAI با خروجی ساختاریافته و کنترل ادعاهای حساس.
+## Run a local evaluation
 
-## قابلیت‌های آماده
-
-- ورود امن مدیر، CSRF، Session امضاشده و حذف مقادیر حساس از Log؛
-- تغییر رمز مدیر از داخل پنل با ذخیره Argon2 و خروج خودکار نشست‌های قبلی؛
-- کاتالوگ محصول شامل تصویر، موجودی، ارسال، ویژگی و هشتگ؛
-- پروفایل برند قابل‌ویرایش شامل لحن، CTA، ادعاهای مجاز و هشتگ‌های پایه؛
-- ساخت کپشن فارسی از خلاصه کوتاه مدیر و اطلاعات قطعی محصول؛
-- تولید واقعی تیتر، متن، مزایا، ایموجی و هشتگ با OpenAI Responses API؛
-- شش زاویه محتوا: معرفی، آموزشی، پرسش رایج، مسئله و راه‌حل، اعتمادسازی و راهنمای سفارش؛
-- نسخه‌بندی بازتولیدها، ویرایش کپشن و چرخه تأیید/رد؛
-- ویرایش واقعی تصویر با `gpt-image-2` شامل پس‌زمینه استودیویی، بهبود طبیعی کیفیت و تأکید صریح بر حفظ رنگ و متریال هر محصول؛
-- نگهداری خصوصی نسخه ویرایش‌شده بدون جایگزینی یا دست‌کاری تصویر اصلی محصول؛
-- ضبط وویس فقط داخل مرورگر و نگهداری خصوصی همان فایل بدون تغییر صدا؛
-- ساخت Snapshot تغییرناپذیر از کپشن، تصویر و وویس اختیاری؛
-- حالت‌های تأیید دستی، خودکار و توقف سراسری انتشار؛
-- صف زمان‌بندی پایدار، Idempotency Key، سه تلاش با Backoff و ثبت نتیجه؛
-- ارسال واقعی عکس، کپشن و وویس به کانال تلگرام با گزارش Message ID؛
-- داشبورد مدیریتی ۷ و ۳۰ روزه برای موفقیت هر پلتفرم، روند فعالیت، نوع پاسخ‌های ربات و خطاهای نیازمند اقدام؛
-- شبیه‌ساز داخلی بدون شبکه برای تست کامل جریان انتشار پیش از اتصال تلگرام؛
-- رابط RTL واکنش‌گرا با فونت Vazirmatn.
-
-ویرایش تصویر اکنون دو حالت دارد: خروجی استودیویی با یک متن کوتاه فارسی و خروجی سینمایی با موضوع و پیام اصلی. در هر دو حالت، کل عکس برای ویرایش به GPT Image فرستاده می‌شود و جداسازی یا چسباندن محلی محصول انجام نمی‌شود. انتشار واقعی در تلگرام، بله، روبیکا و واتساپ فعال است؛ پاسخ‌گوی مشتری فقط در تلگرام، بله و روبیکا اجرا می‌شود و واتساپ صرفاً برای انتشار محتوا باقی مانده است. شبیه‌ساز داخلی نیز برای تست بدون ارسال خارجی در دسترس است.
-
-## پیش‌نیاز و نصب
-
-- Python 3.12 یا جدیدتر؛
-- دسترسی نوشتن برای دیتابیس و `uploads/`؛
-- مرورگر جدید با JavaScript فعال.
-- یک OpenAI API Key دارای Billing فقط برای حالت `openai`.
-- FFmpeg برای ارسال ضبط WebM مرورگر به شکل Voice تلگرام بدون بازکدگذاری صدا.
-
-برای استقرار دائمی روی VPS، فایل‌های systemd، Nginx، n8n و بکاپ در [`deploy/README.md`](deploy/README.md) آماده شده‌اند. هسته انتشار باید با یک worker اجرا شود تا polling ربات‌ها و ارسال‌ها تکراری نشود.
-
-در Windows PowerShell از ریشه پروژه اجرا کنید:
+From the repository root in Windows PowerShell:
 
 ```powershell
 py -3.12 -m venv .venv
 & .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 Copy-Item .env.example .env
-```
-
-Secret نشست را بسازید:
-
-```powershell
 python -c "import secrets; print(secrets.token_urlsafe(48))"
-```
-
-Hash رمز مدیر را به‌شکل تعاملی بسازید:
-
-```powershell
 python -c "from getpass import getpass; from app.core.security import hash_password; print(hash_password(getpass('Admin password: ')))"
 ```
 
-خروجی‌ها را فقط در فایل محلی `.env` قرار دهید:
-
-```dotenv
-APP_NAME=Agentic Content Platform
-APP_TIMEZONE=Asia/Tehran
-DATABASE_URL=sqlite:///./data/app.db
-UPLOAD_DIR=uploads
-SECRET_KEY=<generated-value>
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD_HASH=<argon2-hash>
-CONTENT_PROVIDER=template
-OPENAI_API_KEY=
-OPENAI_TEXT_MODEL=gpt-5.4-nano
-OPENAI_TIMEOUT_SECONDS=45
-OPENAI_IMAGE_MODEL=gpt-image-2
-OPENAI_IMAGE_QUALITY=high
-OPENAI_IMAGE_TIMEOUT_SECONDS=180
-MAX_VOICE_BYTES=26214400
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_DEFAULT_DESTINATION=
-TELEGRAM_MESSAGE_THREAD_ID=
-TELEGRAM_TIMEOUT_SECONDS=30
-TELEGRAM_FFMPEG_BINARY=ffmpeg
-TELEGRAM_SUPPORT_ENABLED=false
-TELEGRAM_SUPPORT_POLL_TIMEOUT_SECONDS=20
-TELEGRAM_SUPPORT_RETRY_SECONDS=3
-BALE_BOT_TOKEN=
-BALE_DEFAULT_DESTINATION=
-BALE_SUPPORT_ENABLED=false
-RUBIKA_BOT_TOKEN=
-RUBIKA_DEFAULT_DESTINATION=
-RUBIKA_SUPPORT_ENABLED=false
-RUBIKA_SUPPORT_POLL_SECONDS=5
-WHATSAPP_BRIDGE_URL=http://127.0.0.1:8780
-WHATSAPP_BRIDGE_TOKEN=
-WHATSAPP_DEFAULT_DESTINATION=
-PUBLISHING_WORKER_ENABLED=true
-PUBLISHING_POLL_SECONDS=15
-DEBUG=false
-```
-
-مقادیر واقعی `.env` یا API key را commit نکنید و در چت، Screenshot یا پیام‌رسان نفرستید. برای تست بدون هزینه `CONTENT_PROVIDER=template` را نگه دارید. برای خروجی واقعی، کلید را فقط در `.env` محلی قرار دهید و مقدار را به `CONTENT_PROVIDER=openai` تغییر دهید. مدل و Timeout از متغیرهای بالا قابل تنظیم‌اند.
-
-Provider واقعی از Responses API با JSON Schema سخت‌گیرانه استفاده می‌کند. قیمت در اطلاعات محصول وجود ندارد و کپشن همیشه مخاطب را برای استعلام و سفارش به شناسه پشتیبانی برند هدایت می‌کند. پاسخ ناقص، خطای شبکه، محدودیت مصرف یا ادعای حساس تأییدنشده باعث ذخیره پیش‌نویس ناقص نمی‌شود و پیام امنی در پنل نمایش داده می‌شود.
-
-## دیتابیس و اجرا
+Set `SECRET_KEY` and `ADMIN_PASSWORD_HASH` in the local `.env` to the two generated values. Keep `CONTENT_PROVIDER=template`, leave messaging credentials empty and set `DEBUG=true` for **local loopback HTTP only**. Production uses HTTPS and `DEBUG=false` for secure session cookies. The database and upload directory must be writable. See [.env.example](.env.example) for the complete configuration.
 
 ```powershell
 python -m alembic upgrade head
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-- سلامت سرویس: `http://127.0.0.1:8000/health`
-- ورود مدیر: `http://127.0.0.1:8000/admin/login`
-- تغییر رمز مدیر پس از ورود: `http://127.0.0.1:8000/admin/security`
+Open [admin login](http://127.0.0.1:8000/admin/login) and sign in with the configured username and password. The [health endpoint](http://127.0.0.1:8000/health) reports service readiness. Password changes are available at `/admin/security`.
 
-برای استفاده از میکروفن، صفحه باید روی `localhost` یا HTTPS باز شود. در سرور واقعی `DEBUG=false` و TLS الزامی است؛ Cookie نشست در این حالت فقط روی HTTPS ارسال می‌شود.
+1. Set the brand tone, support handle, call to action and approved commercial claims. Add a product with its actual image and attributes.
+2. Generate a template caption from a brief. Review the product facts alongside the editable text, generate a second version and approve one.
+3. Optionally record a voice note in a browser on localhost or HTTPS. OGG and WebM recordings are validated by MIME type, signature, size and duration. Defaults are 25 MiB and ten minutes. Original recordings are stored privately.
+4. Create a publication bundle, select the **sandbox** destination and schedule it for immediate delivery. Check the delivery record for the simulated message ID.
+5. Pause publishing and schedule another bundle. The worker preserves queued jobs while paused. Resume processing to finish the exercise.
 
-## گردش کار محتوا
+## Generation and approval
 
-1. در «تنظیمات برند»، لحن، آیدی پشتیبانی و CTA را ثبت کنید.
-2. گارانتی، تخفیف، زمان ارسال و ادعاهای تجاری را فقط اگر قطعی‌اند در «ادعاهای تأییدشده» قرار دهید.
-3. محصول را با تصویر و مشخصات واقعی ثبت کنید.
-4. از صفحه محصول «ساخت محتوا» را بزنید و فقط خلاصه کوتاه و زاویه محتوا را بنویسید.
-5. اطلاعات قطعی محصول را کنار کپشن بررسی و متن نهایی را ویرایش کنید.
-6. «ساخت نسخه جدید» رکورد مستقلی می‌سازد؛ payload تولیدکننده و هر نسخه قبلی محفوظ می‌ماند.
-7. در هر مجموعه فقط یک نسخه می‌تواند تأییدشده باشد و تأیید نسخه جدید، نسخه تأییدشده قبلی را قدیمی می‌کند.
+Set `CONTENT_PROVIDER=openai` and configure `OPENAI_API_KEY` locally to enable paid generation. The Responses API uses a strict JSON schema. Captions use catalog facts and direct price inquiries to the brand contact. Review generated claims before approval. The template provider is labeled separately in the interface.
 
-برچسب «حالت آزمایشی — بدون OpenAI» روی خروجی قالبی و برچسب «تولیدشده با OpenAI» روی خروجی واقعی دیده می‌شود. هر دو حالت پیش از انتشار نیازمند بررسی مدیر هستند.
+Image editing supports studio and cinematic modes. The model is asked to preserve product shape, color and material. The application adds branding locally after generation and stores the edit separately from the original. Compare textures, edges and hardware before approval. Edited images and voice recordings are served through authenticated admin routes.
 
-## ویرایش تصویر با OpenAI
+Manual mode requires an approved draft. Automatic mode checks the active product, caption and available image before bundling. Scheduled jobs persist in SQLite. Delivery records track attempts, idempotency keys, external message IDs and errors. Temporary failures use backoff. Permanent configuration errors and partial deliveries require operator review.
 
-بخش «ویرایش تصویر محصول» در صفحه پیش‌نمایش محتوا از تصویر اصلی ثبت‌شده برای محصول استفاده می‌کند. حالت پیش‌فرض «هوشمند بر اساس رنگ محصول» است و بین پس‌زمینه‌های خنثی روشن یا تیره، کنتراست مناسب همان تصویر را درخواست می‌کند؛ هیچ رنگ ثابت یا پالت محصول قبلی به محصول جدید تحمیل نمی‌شود. حالت‌های استودیویی روشن و تیره نیز قابل انتخاب‌اند.
+## Connect a messaging channel
 
-درخواست با `gpt-image-2` و کیفیت پیش‌فرض `high` فرستاده می‌شود. پرامپت حفظ دقیق فرم، تناسب، رنگ، ترکیب رنگ، متریال و بافت را در بالاترین اولویت قرار می‌دهد. پس از دریافت خروجی، لوگو در گوشه پایین راست و شماره تماس در پایین تصویر به‌صورت قطعی و محلی اضافه می‌شوند. خروجی در `uploads/private/edited_images/<draft-id>/` ذخیره و فقط از مسیر احرازهویت‌شده `/admin/content/<id>/image` نمایش داده می‌شود. تصویر اصلی زیر `uploads/products/.../original/` هرگز جایگزین نمی‌شود.
+Use a test destination first. Restart the application after updating its environment.
 
-ویرایش مولد می‌تواند جزئیات بسیار ریز بافت را بازسازی کند؛ بنابراین مدیر باید قبل از تأیید، رنگ، فرم، شیارها، یراق و بافت را کنار تصویر اصلی مقایسه کند. لوگو و شماره تماس پس از تولید، به‌صورت یک لایه قطعی و قابل‌کنترل روی خروجی اضافه می‌شوند.
+| Destination | Setup and delivery details |
+| --- | --- |
+| Telegram | Create a bot with BotFather, grant channel posting rights and set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_DEFAULT_DESTINATION` (public handle or private channel ID starting with `-100`). For a forum topic, set `TELEGRAM_MESSAGE_THREAD_ID`. Photo captions are limited to 1,024 characters. Install FFmpeg for WebM/Opus voice delivery, optionally setting `TELEGRAM_FFMPEG_BINARY`. Audio is remuxed to OGG without re-encoding. |
+| Bale | Create a bot with [BotFather](https://ble.ir/botfather), grant posting rights and set `BALE_BOT_TOKEN` and `BALE_DEFAULT_DESTINATION` to a channel handle or numeric ID. The adapter uses the [standard Bot API](https://docs.bale.ai/) for the photo, caption and optional voice note. |
+| Rubika | Create a bot with [BotFather](https://rubika.ir/BotFather), grant posting rights and set `RUBIKA_BOT_TOKEN` and the channel chat ID in `RUBIKA_DEFAULT_DESTINATION`. The [Bot API](https://rubika.ir/botapi) uses an upload followed by a send operation. Browser recordings are sent as audio files to preserve the original format. |
+| WhatsApp | Follow the [bridge setup](services/whatsapp-bridge/README.md). Pair a linked device and select a test group before trying a channel. Delivery depends on the unofficial WhatsApp Web integration. |
 
-## وویس، حریم خصوصی و محدودیت‌ها
+Enable inbound support separately with the platform-specific support flags in [.env.example](.env.example). The support engine handles private text messages, ignores channel/group traffic and routes uncertain cases to a human. Its fallback messages and provider instructions are Persian. English-language answer quality has not been established.
 
-ضبط مستقیم فقط پس از کلیک مدیر و پذیرش اجازه میکروفن آغاز می‌شود و امکان بارگذاری دستی در پنل نمایش داده نمی‌شود. خروجی OGG یا WebM مرورگر با بررسی MIME، امضای فایل، حجم و مدت پذیرفته می‌شود. سقف پیش‌فرض ۲۵ MiB و ۱۰ دقیقه است.
-
-وویس ذخیره‌شده تبدیل، فشرده، افکت‌گذاری یا با هوش مصنوعی بازتولید نمی‌شود. SHA-256 و تست‌ها یکسان‌بودن بایت‌های دریافت و پخش را بررسی می‌کنند. فایل‌ها زیر `uploads/private/voices/` ذخیره می‌شوند، به‌صورت عمومی mount نیستند و فقط مسیر احرازهویت‌شده `/admin/content/<id>/voice` آن‌ها را برمی‌گرداند. هنگام ارسال تلگرام، ضبط WebM/Opus فقط با `ffmpeg -c:a copy` به کانتینر OGG منتقل می‌شود؛ بسته‌های صوتی بازکدگذاری نمی‌شوند و کیفیت صدا تغییر نمی‌کند.
-
-## بسته نهایی و زمان‌بندی
-
-پس از آماده‌شدن محتوا، بخش «بسته نهایی انتشار» در همان صفحه پیش‌نمایش، کپشن و تصویر منتخب را همراه وویس اختیاری در `uploads/private/bundles/` Snapshot می‌کند. این فایل‌ها مستقل‌اند؛ تعویض عکس محصول، ویرایش نسخه دیگری از کپشن یا حذف وویس اصلی، بسته زمان‌بندی‌شده را تغییر نمی‌دهد.
-
-- در حالت `manual_approval` فقط نسخه تأییدشده مدیر بسته‌بندی می‌شود.
-- در حالت `automatic` نسخه منتظر تأیید، فقط پس از Guardهای فعلی شامل محصول فعال، کپشن معتبر و تصویر قابل‌دسترسی، تأیید و بسته‌بندی می‌شود.
-- در حالت `paused` صف و زمان‌ها حفظ می‌شوند ولی Worker هیچ ارسال تازه‌ای شروع نمی‌کند.
-
-صف در دیتابیس پایدار است و Worker داخلی هر `PUBLISHING_POLL_SECONDS` ثانیه موارد سررسیدشده را بررسی می‌کند. خطای موقت حداکثر سه بار با فاصله‌های ۱، ۵ و ۱۵ دقیقه تلاش می‌شود. `idempotency_key`، تعداد تلاش، شناسه پیام‌های خارجی و پیام خطای امن ثبت می‌شوند.
-
-مقصد `sandbox` هیچ شبکه یا کانال واقعی را صدا نمی‌زند و برای هر بسته شناسه آزمایشی می‌سازد. اگر `TELEGRAM_BOT_TOKEN` تنظیم شود، گزینه `telegram` نیز در فرم زمان‌بندی ظاهر می‌شود و عکس و کپشن را با Bot API می‌فرستد؛ وویس اختیاری پس از پست اصلی ارسال می‌شود. خطای موقت شبکه، محدودیت 429 و خطای 5xx دوباره تلاش می‌شوند. خطای توکن، دسترسی یا مقصد نامعتبر دائمی است. اگر پست اصلی ارسال شود ولی وویس شکست بخورد، شناسه پست حفظ و ارسال مجدد متوقف می‌شود تا پست تکراری ساخته نشود.
-
-اگر `BALE_BOT_TOKEN` تنظیم شود، گزینه `bale` نیز با API رسمی معمولی بازوی بله فعال می‌شود. این اتصال برای کانال از `https://tapi.bale.ai/bot<TOKEN>/...` استفاده می‌کند و عکس، کپشن و وویس اختیاری را به ترتیب می‌فرستد. API کسب‌وکاری بله در این پروژه استفاده نمی‌شود، چون طبق مستندات رسمی `chat_id` آن فقط چت شخصی را می‌پذیرد.
-
-اگر `RUBIKA_BOT_TOKEN` تنظیم شود، گزینه `rubika` با Bot API رسمی روبیکا فعال می‌شود. تصویر و کپشن ابتدا به کانال می‌روند و وویس اختیاری در پیام بعدی ارسال می‌شود. موفقیت یا خطای روبیکا مستقل از تلگرام و بله ثبت می‌شود تا شکست یک مقصد باعث تکرار پست‌های موفق نشود.
-
-اگر bridge محلی کلید runtime را ساخته باشد یا `WHATSAPP_BRIDGE_TOKEN` تنظیم شود، گزینه `whatsapp` از طریق WhatsApp Web فعال می‌شود. این مسیر رسمی Meta نیست و به‌دلیل الزام ارسال به گروه/کانال بدون خرید API انتخاب شده است؛ تغییرات WhatsApp Web یا سیاست‌های واتساپ ممکن است نشست را قطع کند. نتیجه واتساپ مستقل ثبت می‌شود و شکست آن، ارسال موفق تلگرام، بله یا روبیکا را تکرار نمی‌کند.
-
-## راه‌اندازی کانال تلگرام
-
-1. در Telegram با `@BotFather` یک Bot بسازید و Token را فقط در `TELEGRAM_BOT_TOKEN` فایل محلی `.env` قرار دهید؛ Token را در چت، تصویر یا Git نفرستید.
-2. Bot را در کانال آزمایشی به‌عنوان Administrator اضافه و اجازه Post Messages را فعال کنید.
-3. برای کانال عمومی، `TELEGRAM_DEFAULT_DESTINATION=@channel_username` را تنظیم کنید. برای کانال خصوصی شناسه عددی با پیشوند `-100` لازم است.
-4. اگر مقصد یک Topic از Supergroup است، شناسه عددی Topic را در `TELEGRAM_MESSAGE_THREAD_ID` قرار دهید؛ برای ارسال معمولی آن را خالی بگذارید.
-5. FFmpeg را روی همان سروری که برنامه اجرا می‌شود نصب کنید و در صورت نیاز مسیر کامل executable را در `TELEGRAM_FFMPEG_BINARY` بگذارید.
-6. برنامه را Restart کنید. در صفحه پیش‌نمایش بسته، «تلگرام» را انتخاب و ابتدا یک ارسال فوری به کانال آزمایشی انجام دهید.
-
-کپشن عکس تلگرام حداکثر ۱۰۲۴ نویسه است و سامانه پیش از ورود بسته به صف این محدودیت را کنترل می‌کند. تصویر با `sendPhoto` و وویس سازگار با `sendVoice` فرستاده می‌شود.
-
-## راه‌اندازی کانال بله
-
-1. در بله با [`@botfather`](https://ble.ir/botfather) یک بازو بسازید و Token را فقط در `BALE_BOT_TOKEN` فایل محلی `.env` قرار دهید.
-2. بازو را در کانال آزمایشی مدیر کنید و اجازه ارسال پیام بدهید.
-3. برای کانال عمومی، `BALE_DEFAULT_DESTINATION=@channel_username` را تنظیم کنید؛ شناسه عددی کانال نیز پشتیبانی می‌شود.
-4. برنامه را Restart کنید. در صفحه بسته نهایی، «بله» را انتخاب و ابتدا یک ارسال فوری واقعی به کانال آزمایشی انجام دهید.
-
-طبق [مستندات رسمی بازوی بله](https://docs.bale.ai/)، تصویر جدید با `multipart/form-data` تا ۱۰ مگابایت، متن و کپشن تا ۴۰۹۶ نویسه و وویس تا ۵۰ مگابایت پشتیبانی می‌شود. ضبط WebM/Opus پنل پیش از `sendVoice` بدون بازکدگذاری به OGG منتقل می‌شود.
-
-## راه‌اندازی کانال روبیکا
-
-1. در روبیکا با [`@BotFather`](https://rubika.ir/BotFather) یک بات بسازید و Token را فقط در `RUBIKA_BOT_TOKEN` فایل محلی `.env` قرار دهید.
-2. بات را به کانال اضافه کنید، آن را مدیر کنید و اجازه ارسال پیام بدهید.
-3. `chat_id` کانال را در `RUBIKA_DEFAULT_DESTINATION` قرار دهید.
-4. برنامه را Restart کنید. در صفحه بسته نهایی، «روبیکا» باید کنار دیگر کانال‌های فعال دیده شود؛ ابتدا یک ارسال فوری واقعی به کانال آزمایشی انجام دهید.
-
-اتصال بر اساس [Bot API رسمی روبیکا](https://rubika.ir/botapi) از `requestSendFile`، بارگذاری فایل و سپس `sendFile` استفاده می‌کند. طبق [محدودیت رسمی فایل‌ها](https://rubika.ir/botapi/models)، تصویر تا ۱۰ مگابایت و فایل عمومی تا ۵۰ مگابایت پذیرفته می‌شود. روبیکا برای Voice بومی فقط MP3 می‌پذیرد؛ بنابراین ضبط WebM/Opus پنل برای حفظ دقیق صدای اصلی و بدون تبدیل، به‌صورت فایل صوتی ارسال می‌شود.
-
-## راه‌اندازی واتساپ
-
-1. داخل `services/whatsapp-bridge` فرمان `npm install` را اجرا و سپس از ریشه پروژه `npm --prefix services/whatsapp-bridge start` را بزنید. کلید اتصال به‌صورت خودکار و محلی ساخته می‌شود.
-2. در اولین اجرا، تصویر `.whatsapp-runtime/qr.png` را از بخش Linked devices واتساپ اسکن کنید. نشست فقط در `.whatsapp-session/` می‌ماند و وارد Git نمی‌شود.
-3. با endpoint محلی `/destinations` شناسه گروه (`@g.us`) یا کانال (`@newsletter`) را پیدا و در `WHATSAPP_DEFAULT_DESTINATION` قرار دهید.
-4. برنامه پایتون را Restart و ابتدا ارسال فوری را در مقصد تستی بررسی کنید.
-
-bridge بر پایه [`whatsapp-web.js`](https://github.com/wwebjs/whatsapp-web.js) است و فایل تصویر، کپشن و وویس اصلی را ارسال می‌کند. برای جلوگیری از گزارش موفق کاذب، شناسه پیام و ACK واتساپ بررسی می‌شود. اگر تصویر ارسال شود ولی وویس شکست بخورد، نتیجه ناقص ثبت و ارسال خودکار تکرار نمی‌شود. ارسال رسانه به WhatsApp Channels در نسخه‌های فعلی WhatsApp Web نسبت به گروه‌ها ناپایدارتر است؛ بنابراین برای MVP ابتدا گروه تستی پیشنهاد می‌شود.
-
-این اتصال رسمی Meta نیست و به‌صورت اختیاری و فقط روی `127.0.0.1` اجرا می‌شود. اسکریپت `postinstall` یک Patch سازگاری محدود و قابل‌تکرار برای ارسال رسانه اعمال می‌کند و اگر ساختار نسخه وابستگی تغییر کرده باشد، نصب را به‌جای Patch خاموش و نامطمئن متوقف می‌کند. پیش از هر ارتقای وابستگی، `npm audit`، تست Syntax و یک ارسال آزمایشی کنترل‌شده انجام شود.
-
-## مرز داده عمومی و محرمانه
-
-- فایل‌های `.env`، دیتابیس، رسانه مشتری، خروجی‌های تولیدشده، نشست و QR واتساپ و Bridge token وارد Git نمی‌شوند.
-- مقادیر `.env.example` و `deploy/*.example` صرفاً Placeholder هستند.
-- جزئیات گزارش آسیب‌پذیری و الزامات استقرار امن در [`SECURITY.md`](SECURITY.md) آمده است.
-- سابقه ارسال و داده واقعی محیط تولید باید فقط در VPS و بکاپ رمزگذاری‌شده باقی بماند.
-
-## تست خودکار
+## Verification and deployment
 
 ```powershell
 python -m ruff check app tests
-python -m pytest -v --cov=app --cov-report=term-missing
+python -m pytest -q
 ```
 
-برای آزمون Migration فقط روی دیتابیس توسعه یا دیتابیسی با Backup معتبر:
+Review the [support tests](tests/support/) for decision rules and provider boundaries. Live provider calls and real channel deliveries require separate integration checks with the owner's accounts.
 
-```powershell
-$env:DATABASE_URL='sqlite:///./.tmp/phase2-gate.db'
-python -m alembic upgrade head
-python -m alembic downgrade base
-python -m alembic upgrade head
-Remove-Item Env:DATABASE_URL
-git diff --check
-```
-
-`downgrade base` جدول‌های همان دیتابیس را حذف می‌کند؛ هرگز آن را روی داده واقعی کارفرما اجرا نکنید.
-
-## چک‌لیست تست دستی تحویل فاز دوم
-
-1. ورود ناموفق و سپس ورود موفق مدیر را امتحان کنید.
-2. پروفایل برند را ذخیره و پس از Refresh ماندگاری آن را بررسی کنید.
-3. یک محصول با عکس، ویژگی و هشتگ بسازید.
-4. از خلاصه کوتاه یک کپشن بسازید و جدایی اطلاعات قطعی از متن قابل‌ویرایش را ببینید.
-5. کپشن را ویرایش، یک نسخه تازه تولید و وضعیت تاریخچه را مقایسه کنید.
-6. نسخه را تأیید کنید و سپس تأیید نسخه دیگر را برای قدیمی‌شدن قبلی بررسی کنید.
-7. یک وویس کوتاه داخل پنل ضبط کنید؛ آن را ذخیره، پخش، دوباره ضبط و جایگزین و سپس حذف کنید.
-8. برای یک محصول دارای عکس، نسخه استودیویی هوشمند بسازید و رنگ، فرم و جزئیات را کنار اصل مقایسه کنید؛ سپس دانلود، بازتولید و حذف را امتحان کنید.
-9. در دسکتاپ و موبایل بررسی کنید که صفحه اسکرول افقی ندارد و URL وویس یا تصویر ویرایش‌شده هرگز زیر `/uploads/private` نیست.
-10. در حالت `openai` یک پیش‌نویس واقعی بسازید، برچسب Provider، متن استعلام، مشخصات و نبود ادعای ساختگی را بررسی کنید.
-11. در حالت دستی تأیید را حذف کنید و مطمئن شوید ساخت بسته رد می‌شود؛ سپس تأیید و بسته را بسازید.
-12. بسته را برای «همین حالا» زمان‌بندی کنید، در صفحه انتشار «بررسی همین حالا» را بزنید و نتیجه موفق شبیه‌ساز را ببینید.
-13. حالت توقف را فعال کنید، یک مورد دیگر زمان‌بندی کنید و مطمئن شوید تا بازگشت به حالت دستی/خودکار پردازش نمی‌شود.
-
-## Backup و استقرار
-
-Backup سازگار باید در یک لحظه زمانی واحد شامل فایل SQLite (پیش‌فرض `data/app.db`) و کل `uploads/`، به‌ویژه `uploads/private/voices/` و `uploads/private/edited_images/` باشد. پیش از کپی ساده سرویس را متوقف کنید؛ در استقرار حرفه‌ای از snapshot سازگار استفاده شود.
-
-SQLite برای MVP تک‌سروری مناسب است. برای چند worker یا نوشتن هم‌زمان زیاد، PostgreSQL مقصد بعدی است. ساختار فعلی Modular Monolith است و تا زمان اثبات نیاز، Microservice، Celery، Redis، LangChain یا React اضافه نمی‌شود.
-
-## داده‌های لازم برای فازهای بعد
-
-- سقف هزینه و مدل مجاز تصویر OpenAI؛
-- Telegram Bot token، شناسه کانال تست و دسترسی Admin؛
-- Bale Bot token، شناسه کانال تست و دسترسی لازم؛
-- روش رسمی و قابل‌تأیید Rubika در زمان اجرا؛
-- FAQ، قوانین فروش/ارسال/مرجوعی و مسیر ارجاع به انسان؛
-- سرور ۲۴ساعته، دامنه، TLS، Backup و مانیتورینگ؛
-- WhatsApp در فاز آخر و به‌صورت best-effort با پذیرش ریسک روش‌های غیررسمی گروه/کانال.
+For a single-server deployment, use the [VPS guide](deploy/README.md), [security policy](SECURITY.md) and [handover checklist](docs/security-finalization-checklist.md). Back up SQLite and the complete upload tree at a consistent point in time. Keep real environment files, customer data, private media, bridge tokens and linked-device sessions outside Git.
